@@ -13,6 +13,8 @@ A small Chrome / Edge extension for the Yamaha HRIS that does two jobs for you:
   <img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/popup-dts.png" width="300" alt="DTS tab" />
 </p>
 
+> 🖼️ **Screenshots not loading?** Open **[`GUIDE.html`](GUIDE.html)** from the downloaded folder. It is this same guide with every image built in, so it works offline.
+
 ---
 
 ## 🚀 Quick start
