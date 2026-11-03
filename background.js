@@ -517,12 +517,15 @@ async function fillDtsInPage(cfg) {
     return document.getElementById("resultModel.status2");
   }
 
+  let offset = 0;
   function setTimes(fromMin, toMin, withDuration = true) {
     const f = document.getElementById("timepicker1");
     const t = document.getElementById("timepicker2");
     if (!f || !t) throw new Error("Time fields not found.");
     if (!Number.isFinite(fromMin) || !Number.isFinite(toMin)) {
-      throw new Error(`Invalid row times (${fromMin} - ${toMin}).`);
+      throw new Error(
+        `Invalid row times (${fromMin} - ${toMin}). Debug: ${JSON.stringify({ wfh: cfg.wfh, customStartMin: cfg.customStartMin, offset, rows: cfg.rows })}`
+      );
     }
     f.value = to12h(fromMin);
     t.value = to12h(toMin);
@@ -549,7 +552,7 @@ async function fillDtsInPage(cfg) {
 
     // Office mode: shift every row so the first one starts at the system in-time
     // (or at the user-defined start time)
-    let offset = 0;
+    offset = 0;
     if (!cfg.wfh) {
       let startMin = cfg.customStartMin;
       if (startMin === null) {
