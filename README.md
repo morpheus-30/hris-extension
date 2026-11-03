@@ -8,9 +8,9 @@ A small Chrome / Edge extension for the Yamaha HRIS that does two jobs for you:
 | **📝 DTS filling** | Logs in, opens **IT Services → DTS**, and fills your Daily Time Sheet rows (with per-row dropdown profiles) so you don't have to. |
 
 <p align="center">
-  <img src="docs/img/popup-out-time.png" width="300" alt="Out time tab" />
+  <img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/popup-out-time.png" width="300" alt="Out time tab" />
   &nbsp;&nbsp;
-  <img src="docs/img/popup-dts.png" width="300" alt="DTS tab" />
+  <img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/popup-dts.png" width="300" alt="DTS tab" />
 </p>
 
 ---
@@ -62,20 +62,20 @@ Works in **Microsoft Edge** and **Google Chrome**.
 **1. Open the extensions page.** Click the puzzle-piece icon and choose **Manage extensions**
 (or type `edge://extensions` / `chrome://extensions` in the address bar).
 
-<img src="docs/img/1-extensions-menu.png" width="320" alt="Extensions menu" />
+<img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/1-extensions-menu.png" width="320" alt="Extensions menu" />
 
 **2. Turn on Developer mode** (toggle on the left side in Edge, top-right in Chrome).
 
-<img src="docs/img/2-developer-mode.png" width="260" alt="Developer mode toggle" />
+<img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/2-developer-mode.png" width="260" alt="Developer mode toggle" />
 
 **3. Click "Load unpacked".**
 
-<img src="docs/img/3-load-unpacked.png" width="640" alt="Load unpacked button" />
+<img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/3-load-unpacked.png" width="640" alt="Load unpacked button" />
 
 **4. Select the extension folder** — the folder that directly contains `manifest.json`
 (`hris-extension` if you cloned, or the unzipped `hris-extension-main`), then click **Select Folder**.
 
-<img src="docs/img/4-select-folder.png" width="640" alt="Select the extension folder" />
+<img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/4-select-folder.png" width="640" alt="Select the extension folder" />
 
 You should now see **Estimated Out Time** in your extensions list. 🎉
 
@@ -94,7 +94,7 @@ So it's one click away:
 1. Click the 🧩 puzzle icon in the toolbar.
 2. Click the **pin** icon next to **Estimated Out Time**.
 
-<img src="docs/img/5-pin.png" width="300" alt="Pin the extension" />
+<img src="https://raw.githubusercontent.com/morpheus-30/hris-extension/main/docs/img/5-pin.png" width="300" alt="Pin the extension" />
 
 ---
 
