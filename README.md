@@ -30,7 +30,7 @@ Open the popup's **DTS filling** section:
   - From: *Custom time*, *System in-time* (what the form shows for the date) or *After previous row* (+ a gap in minutes).
   - To: *Custom time*, *System out-time* or *Hours after From*.
   - Two rows are pre-filled; add or remove rows as needed. A row can't be longer than the maximum, From must be before To, and rows can't overlap.
-- **Fill DTS** logs in, opens IT Services -> DTS, adds every row and leaves the DTS tab open for you to review. It never presses Save/Submit.
+- **Fill DTS** logs in, opens IT Services -> DTS, adds every row and leaves the DTS tab open for you to review. By default it does not press Save/Submit; pick an option under "After adding the rows" to change that.
 
 ## Notes
 

@@ -15,6 +15,7 @@
 const DTS_DEFAULTS = {
   mode: "wfh", // "wfh": rows use plain custom times. "office": rows may use system in/out-time, gaps, durations.
   date: "", // "" = today, otherwise "YYYY-MM-DD" (from <input type="date">)
+  submitAction: "none", // after the rows are added: "none" (review only), "save" or "submit"
   maxHours: 4, // maximum duration of a single row, in hours
   project: "YME",
   module: "SAP",
@@ -123,6 +124,7 @@ function dtsValidate(cfg) {
   if (!Array.isArray(cfg.rows) || cfg.rows.length === 0) return ["Add at least one time row."];
   const errors = [];
   if (cfg.date && !dtsDateLabel(cfg.date)) errors.push("Date is invalid.");
+  if (!["none", "save", "submit"].includes(cfg.submitAction || "none")) errors.push("Invalid submit option.");
   if (!(Number(cfg.maxHours) > 0)) errors.push("Maximum hours per row must be more than 0.");
   for (const key of ["project", "module", "activityType", "activity", "status"]) {
     if (!String(cfg[key] || "").trim()) errors.push(`"${key}" match text can't be empty.`);

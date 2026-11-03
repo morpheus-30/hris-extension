@@ -201,6 +201,7 @@ getDetailsBtn.addEventListener("click", () => {
 // ---------- DTS filling ----------
 
 const dtsEls = {
+  submitAction: document.getElementById("dtsSubmit"),
   mode: document.getElementById("dtsMode"),
   date: document.getElementById("dtsDate"),
   maxHours: document.getElementById("dtsMaxHours"),
@@ -246,6 +247,7 @@ function dtsReadRow(el) {
 
 function readDtsConfig() {
   return {
+    submitAction: dtsEls.submitAction.value,
     mode: dtsEls.mode.value,
     date: dtsEls.date.value,
     maxHours: parseFloat(dtsEls.maxHours.value),
@@ -357,6 +359,7 @@ function addDtsRow(row) {
 
 function renderDtsConfig(cfg) {
   dtsEls.mode.value = cfg.mode || "wfh";
+  dtsEls.submitAction.value = cfg.submitAction || "none";
   dtsEls.date.value = cfg.date || "";
   dtsEls.maxHours.value = cfg.maxHours;
   for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
@@ -381,7 +384,10 @@ function showDtsRun(run) {
   const time = formatFetchedAt(run.at || new Date().toISOString());
   if (run.ok) {
     dtsResultEl.style.color = "var(--good)";
-    dtsResultEl.textContent = `${time} — added ${run.added} entr${run.added === 1 ? "y" : "ies"}. Review and save in the DTS tab.`;
+    const done = `added ${run.added} entr${run.added === 1 ? "y" : "ies"}`;
+    dtsResultEl.textContent = run.submitted
+      ? `${time} — ${done} and clicked "${run.submitted}". Check the DTS tab.`
+      : `${time} — ${done}. Review and save in the DTS tab.`;
   } else {
     dtsResultEl.style.color = "var(--bad)";
     const msg = DTS_ERROR_MESSAGES[run.error] || run.detail || run.error || "Something went wrong.";

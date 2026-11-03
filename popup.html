@@ -503,6 +503,13 @@
         </div>
       </div>
 
+      <label for="dtsSubmit" style="margin-top:10px">After adding the rows</label>
+      <select id="dtsSubmit">
+        <option value="none">Review only — don't submit</option>
+        <option value="save">Auto-click Save</option>
+        <option value="submit">Auto-click Submit</option>
+      </select>
+
       <details class="sub">
         <summary>Dropdown matching</summary>
         <div class="note" style="margin-top:0;margin-bottom:8px">Matches option text by "contains", ignoring case.</div>
@@ -547,7 +554,7 @@
       <div id="dtsResult"></div>
       <div class="note">
         Logs in, opens IT Services &rarr; DTS, adds the rows and leaves the
-        tab open for you to review. It never presses Save/Submit.
+        tab open for you to review. It only presses Save/Submit if you pick that above.
       </div>
     </div>
   </div>
