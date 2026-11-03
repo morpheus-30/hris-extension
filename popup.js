@@ -362,7 +362,8 @@ function renderDtsConfig(cfg) {
   dtsEls.submitAction.value = cfg.submitAction || "none";
   dtsEls.date.value = cfg.date || "";
   dtsEls.maxHours.value = cfg.maxHours;
-  for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
+  for (const k of ["project", "module", "activityType", "activity"]) dtsEls[k].value = cfg[k];
+  dtsEls.status.value = /complete/i.test(cfg.status || "") ? "complete" : "progress";
   dtsRowsEl.textContent = "";
   cfg.rows.forEach(addDtsRow);
   refreshDtsValidation();

@@ -585,7 +585,8 @@ async function fillDtsInPage(cfg) {
       text += " " + (radio.value || "");
       if (matches(text, cfg.status)) return radio;
     }
-    return document.getElementById("resultModel.status2");
+    // Fallback ids: Completed is status1, Work In Progress is status2
+    return document.getElementById(matches(cfg.status, "complete") ? "resultModel.status1" : "resultModel.status2");
   }
 
   function setTimes(fromMin, toMin, withDuration = true) {
