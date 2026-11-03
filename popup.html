@@ -432,12 +432,14 @@
 
   <!-- ================= OUT TIME ================= -->
   <div class="panel active" id="panelOut">
-    <div class="card">
+    <details class="card" open data-key="out">
+      <summary>Today's out time</summary>
       <button id="getDetailsBtn" class="primary">Get Details</button>
       <div id="result">No data fetched yet.</div>
-    </div>
+    </details>
 
-    <div class="card">
+    <details class="card" open data-key="short">
+      <summary>Short leave</summary>
       <div class="stepper-wrap">
         <div>
           <div class="what">Short leaves taken</div>
@@ -449,9 +451,9 @@
           <button id="increaseShortLeave" aria-label="More">+</button>
         </div>
       </div>
-    </div>
+    </details>
 
-    <details class="card">
+    <details class="card" data-key="settings">
       <summary>Settings</summary>
 
       <h2>Required work duration</h2>
@@ -494,8 +496,8 @@
 
   <!-- ================= DTS ================= -->
   <div class="panel" id="panelDts">
-    <div class="card">
-      <h2>Config</h2>
+    <details class="card" open data-key="dts-config">
+      <summary>Config</summary>
       <label for="dtsMode">Mode</label>
       <select id="dtsMode">
         <option value="wfh">Work from home — fixed times</option>
@@ -519,10 +521,10 @@
         <option value="submit">Auto-click Submit (if the form has one)</option>
       </select>
 
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Profiles</h2>
+    <details class="card" open data-key="dts-profiles">
+      <summary>Profiles</summary>
       <div class="note" style="margin-top:0;margin-bottom:8px">
         A profile is a set of dropdown choices. Each row below picks one; new rows use the ★ default.
         Text matches option names by "contains", ignoring case.
@@ -561,10 +563,10 @@
         <option value="progress">Work In progress</option>
         <option value="complete">Completed</option>
       </select>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Time rows</h2>
+    <details class="card" open data-key="dts-rows">
+      <summary>Time rows</summary>
       <div id="dtsRows"></div>
       <div class="row" style="margin-top:0">
         <button id="dtsAddRow">+ Add row</button>
@@ -572,16 +574,17 @@
         <button id="dtsReset">Reset</button>
       </div>
       <div id="dtsErrors"></div>
-    </div>
+    </details>
 
-    <div class="card">
+    <details class="card" open data-key="dts-run">
+      <summary>Run</summary>
       <button id="fillDtsBtn" class="primary">Fill DTS</button>
       <div id="dtsResult"></div>
       <div class="note">
         Logs in, opens IT Services &rarr; DTS, adds the rows and leaves the
         tab open for you to review. It only presses Submit if you pick that above.
       </div>
-    </div>
+    </details>
   </div>
 
   <script src="dts-common.js"></script>

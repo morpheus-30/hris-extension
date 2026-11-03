@@ -594,3 +594,18 @@ chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dt
   });
   toggle.addEventListener("change", () => chrome.storage.sync.set({ notifications: toggle.checked }));
 })();
+
+// ---------- Remember which sections are collapsed ----------
+
+(function setupCollapsibles() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("openCards") || "{}"); } catch (e) { /* storage unavailable */ }
+  document.querySelectorAll("details.card[data-key]").forEach((d) => {
+    const key = d.dataset.key;
+    if (key in saved) d.open = saved[key];
+    d.addEventListener("toggle", () => {
+      saved[key] = d.open;
+      try { localStorage.setItem("openCards", JSON.stringify(saved)); } catch (e) { /* storage unavailable */ }
+    });
+  });
+})();
