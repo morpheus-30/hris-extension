@@ -65,7 +65,7 @@ function dtsValidate(cfg) {
       return;
     }
     if (to <= from) {
-      errors.push(`Row ${n}: To must be after From.`);
+      errors.push(`Row ${n}: FromTime cannot be more than or equal to ToTime.`);
     } else if (to - from > maxMinutes) {
       errors.push(`Row ${n}: can't be longer than ${cfg.maxHours} hour(s).`);
     }
