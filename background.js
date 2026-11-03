@@ -18,6 +18,8 @@
 // The popup can close mid-flow (e.g. if a new tab steals focus), which
 // kills sendResponse, but these logs will still show you what happened.
 
+importScripts("dts-common.js");
+
 const HOMEPAGE_URL = "https://hris.yamaha-motor.in:3333/Pages/homepage.aspx";
 const CALENDAR_URL = "https://hrisyna.yamaha-motor.in/hris/lmr/lmr03/initial";
 const DEFAULT_REQUIRED_MINUTES = 8 * 60 + 30;
@@ -389,6 +391,326 @@ async function runGetDetails() {
   }
 }
 
+// =====================================================================
+// DTS (Daily Time Sheet) auto-fill
+//   1. Log in on the homepage (hidden tab), click the "IT Services" link
+//      (opens a new tab on hrisyna).
+//   2. In that tab click the clock icon (changeModule?moduleCd=901) to open
+//      the DTS form.
+//   3. Fill the form in the page's MAIN world (the form's own JS helpers
+//      such as showduration() are only reachable from there) and leave the
+//      tab open and focused so the result can be reviewed and saved.
+// The final Save/Submit is intentionally NOT clicked.
+// =====================================================================
+
+const DTS_LINK_SELECTOR = "a[href*='changeModule?moduleCd=901']";
+
+// ---- Injected into the homepage tab ----
+function clickHomepageLinkByText(needle) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    function tryFind() {
+      const link = Array.from(document.querySelectorAll("a")).find((a) =>
+        a.textContent.trim().toUpperCase().includes(needle)
+      );
+      if (link) {
+        link.click();
+        resolve({ ok: true, href: link.href });
+      } else if (Date.now() - start < 5000) {
+        setTimeout(tryFind, 200);
+      } else {
+        resolve({ ok: false, reason: "link_not_found" });
+      }
+    }
+    tryFind();
+  });
+}
+
+// ---- Injected into the IT Services tab ----
+function clickDtsLink(selector) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    function tryFind() {
+      const link = document.querySelector(selector);
+      if (link) {
+        link.click();
+        resolve({ ok: true, href: link.href });
+      } else if (Date.now() - start < 5000) {
+        setTimeout(tryFind, 200);
+      } else {
+        resolve({ ok: false, reason: "dts_link_not_found" });
+      }
+    }
+    tryFind();
+  });
+}
+
+function dtsFormPresent() {
+  return Boolean(document.getElementById("resultModel.applyDate"));
+}
+
+// ---- Injected into the DTS tab (world: MAIN). Must be self-contained. ----
+async function fillDtsInPage(cfg) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const matches = (text, needle) => (text || "").toLowerCase().includes(needle.toLowerCase());
+  const trigger = (el) => el.dispatchEvent(new Event("change", { bubbles: true }));
+  const call = (name, ...args) => {
+    try {
+      if (typeof window[name] === "function") window[name](...args);
+    } catch (e) {
+      console.warn("[DTS fill]", name, "failed:", e);
+    }
+  };
+  const waitFor = async (fn, timeoutMs = 8000) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const v = fn();
+      if (v) return v;
+      await sleep(200);
+    }
+    return null;
+  };
+  const to12h = (mins) => {
+    const h24 = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${String(h24 % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h24 >= 12 ? "PM" : "AM"}`;
+  };
+  const from12h = (text) => {
+    const m = (text || "").match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return null;
+    let h = parseInt(m[1], 10);
+    const ap = m[3].toUpperCase();
+    if (ap === "PM" && h !== 12) h += 12;
+    if (ap === "AM" && h === 12) h = 0;
+    return h * 60 + parseInt(m[2], 10);
+  };
+
+  async function pick(id, needle, label, hooks) {
+    const opt = await waitFor(() => {
+      const sel = document.getElementById(id);
+      return sel && Array.from(sel.options).find((o) => matches(o.text, needle));
+    });
+    if (!opt) throw new Error(`No "${needle}" option found for ${label}.`);
+    const sel = document.getElementById(id);
+    sel.value = opt.value;
+    trigger(sel);
+    hooks.forEach((name) => call(name, sel));
+    await sleep(1500); // let dependent dropdowns load via AJAX
+  }
+
+  function findStatusRadio() {
+    const radios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
+      (r) => (r.id || "").startsWith("resultModel.status") || (r.name || "").includes("status")
+    );
+    for (const radio of radios) {
+      let text = "";
+      if (radio.id) {
+        const lbl = document.querySelector(`label[for="${radio.id}"]`);
+        if (lbl) text += " " + lbl.textContent;
+      }
+      if (radio.closest("label")) text += " " + radio.closest("label").textContent;
+      if (radio.nextSibling && radio.nextSibling.textContent) text += " " + radio.nextSibling.textContent;
+      text += " " + (radio.value || "");
+      if (matches(text, cfg.status)) return radio;
+    }
+    return document.getElementById("resultModel.status2");
+  }
+
+  function setTimes(fromMin, toMin) {
+    const f = document.getElementById("timepicker1");
+    const t = document.getElementById("timepicker2");
+    if (!f || !t) throw new Error("Time fields not found.");
+    f.value = to12h(fromMin);
+    t.value = to12h(toMin);
+    call("showduration");
+  }
+
+  try {
+    // Date (also triggers the lookup of the system in-time / out-time)
+    const dateField = document.getElementById("resultModel.applyDate");
+    if (!dateField) throw new Error("DTS form not found on this page.");
+    if (cfg.date) {
+      dateField.value = cfg.date;
+    } else {
+      const d = new Date();
+      dateField.value = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    }
+    call("searchDtsInTimeOutTime", dateField);
+    await sleep(2500);
+
+    // Office mode: shift every row so the first one starts at the system in-time
+    let offset = 0;
+    if (!cfg.wfh) {
+      const inField = document.getElementById("resultModel.inTime");
+      const inMin = from12h(inField && inField.value);
+      if (inMin === null) throw new Error("Office mode needs a system in-time, but none was found for this date.");
+      offset = inMin - cfg.rows[0].fromMin;
+    }
+
+    let added = 0;
+    for (const row of cfg.rows) {
+      const fromMin = row.fromMin + offset;
+      const toMin = row.toMin + offset;
+
+      setTimes(fromMin, toMin);
+      await pick("resultModel.project", cfg.project, "Project", [
+        "setHiddentoBlank", "searchModuleMapAjax", "searchActivityTypeMapAjax", "setProject",
+      ]);
+      await pick("resultModel.module", cfg.module, "Module", ["setModule"]);
+      await pick("resultModel.activityType", cfg.activityType, "Type of Activity", [
+        "setActivityType", "setCrList", "searchActivityDescMapAjax",
+      ]);
+      await pick("resultModel.activity", cfg.activity, "Activity Code & Desc", ["setRequestDescription"]);
+
+      const radio = findStatusRadio();
+      if (radio) {
+        radio.checked = true;
+        trigger(radio);
+        call("setStatusHidden", radio);
+      }
+      const comments = document.getElementById("resultModel.comments");
+      if (comments) comments.value = row.comment || "";
+
+      setTimes(fromMin, toMin); // re-assert in case the dropdown handlers reset them
+      await sleep(1000);
+
+      const addBtn = document.getElementById("addEntry");
+      if (!addBtn || addBtn.style.display === "none") {
+        throw new Error(`Add Entry button not available for row ${added + 1}.`);
+      }
+      addBtn.click();
+      added++;
+      await sleep(3000); // let the entry be added and the form reset
+    }
+    return { ok: true, added };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+async function findDtsTab(candidateIds, beforeIds, timeoutMs = 20000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const tabs = await chrome.tabs.query({});
+    const ids = tabs
+      .filter((t) => candidateIds.includes(t.id) || (!beforeIds.has(t.id) && (t.url || "").includes("hrisyna.yamaha-motor.in")))
+      .map((t) => t.id);
+    for (const id of ids) {
+      try {
+        const [r] = await chrome.scripting.executeScript({ target: { tabId: id }, func: dtsFormPresent });
+        if (r?.result) return id;
+      } catch (e) {
+        // tab mid-navigation or not scriptable yet
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error("Timed out waiting for the DTS form to open.");
+}
+
+async function runFillDts() {
+  log("runFillDts: starting");
+
+  const { credentials } = await chrome.storage.local.get("credentials");
+  if (!credentials?.userId || !credentials?.password) return { ok: false, error: "missing_credentials" };
+
+  const { dtsConfig } = await chrome.storage.local.get("dtsConfig");
+  const cfg = { ...DTS_DEFAULTS, ...(dtsConfig || {}) };
+  const problems = dtsValidate(cfg);
+  if (problems.length) return { ok: false, error: "invalid_config", detail: problems.join(" ") };
+
+  // A long-running injected script doesn't count as activity for the service
+  // worker's idle timer, so ping an extension API while we work.
+  const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo(() => {}), 20000);
+
+  let homeTab;
+  let itTabId;
+  let dtsTabId;
+  let keepDtsTab = false;
+  try {
+    homeTab = await chrome.tabs.create({ url: HOMEPAGE_URL, active: false });
+    await waitForTabComplete(homeTab.id);
+
+    const [loginRun] = await chrome.scripting.executeScript({
+      target: { tabId: homeTab.id },
+      func: performLogin,
+      args: [credentials.userId, credentials.password],
+    });
+    if (!loginRun?.result?.ok) return { ok: false, error: "login_form_not_found" };
+    await waitForTabComplete(homeTab.id);
+
+    // Step 1: "IT Services" link -> new hrisyna tab
+    for (let attempt = 1; attempt <= 2 && !itTabId; attempt++) {
+      const newTabPromise = waitForNewHrisTab();
+      newTabPromise.catch(() => {});
+      const [click] = await chrome.scripting.executeScript({
+        target: { tabId: homeTab.id },
+        func: clickHomepageLinkByText,
+        args: ["IT SERVICE"],
+      });
+      log("runFillDts: IT Services click =", click?.result);
+      if (click?.result?.ok) {
+        itTabId = await newTabPromise;
+      } else if (attempt === 2) {
+        return { ok: false, error: "it_services_link_not_found" };
+      } else {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+    await chrome.tabs.update(itTabId, { active: false }).catch(() => {});
+    await waitForTabComplete(itTabId);
+
+    // Step 2: the clock icon -> DTS form (same tab or a new one)
+    const before = new Set((await chrome.tabs.query({})).map((t) => t.id));
+    const [dtsClick] = await chrome.scripting.executeScript({
+      target: { tabId: itTabId },
+      func: clickDtsLink,
+      args: [DTS_LINK_SELECTOR],
+    });
+    log("runFillDts: DTS link click =", dtsClick?.result);
+    if (!dtsClick?.result?.ok) {
+      // Fall back to navigating straight to the module switch URL
+      const itTab = await chrome.tabs.get(itTabId);
+      const origin = new URL(itTab.url).origin;
+      await chrome.tabs.update(itTabId, { url: origin + "/smsexternal/changeModule?moduleCd=901" });
+    }
+
+    dtsTabId = await findDtsTab([itTabId], before);
+    log("runFillDts: DTS tab =", dtsTabId);
+    keepDtsTab = true; // from here on the user may want to see the tab, even on failure
+    await chrome.tabs.update(dtsTabId, { active: true });
+    await new Promise((r) => setTimeout(r, 1000));
+
+    const [fillRun] = await chrome.scripting.executeScript({
+      target: { tabId: dtsTabId },
+      world: "MAIN",
+      func: fillDtsInPage,
+      args: [
+        {
+          wfh: cfg.wfh,
+          date: dtsDateLabel(cfg.date),
+          project: cfg.project,
+          module: cfg.module,
+          activityType: cfg.activityType,
+          activity: cfg.activity,
+          status: cfg.status,
+          rows: cfg.rows.map((r) => ({ fromMin: dtsToMin(r.from), toMin: dtsToMin(r.to), comment: r.comment })),
+        },
+      ],
+    });
+    log("runFillDts: fill result =", fillRun?.result);
+    return fillRun?.result || { ok: false, error: "Fill script returned nothing." };
+  } catch (e) {
+    log("runFillDts: ERROR", e?.message || e);
+    return { ok: false, error: e?.message || String(e) };
+  } finally {
+    clearInterval(keepAlive);
+    if (homeTab?.id) chrome.tabs.remove(homeTab.id).catch(() => {});
+    if (itTabId && itTabId !== dtsTabId) chrome.tabs.remove(itTabId).catch(() => {});
+    if (dtsTabId && !keepDtsTab) chrome.tabs.remove(dtsTabId).catch(() => {});
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.action === "GET_DETAILS") {
     log("onMessage: GET_DETAILS received");
@@ -402,6 +724,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false, error: e?.message || String(e) });
       });
     return true; // keep the message channel open for the async response
+  }
+  if (message?.action === "FILL_DTS") {
+    log("onMessage: FILL_DTS received");
+    runFillDts()
+      .then(async (result) => {
+        await chrome.storage.local.set({ dtsLastRun: { at: new Date().toISOString(), ...result } });
+        sendResponse(result);
+      })
+      .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }));
+    return true;
   }
   return false;
 });

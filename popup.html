@@ -6,7 +6,7 @@
   <title>Estimated Out Time — Settings</title>
   <style>
     body {
-      width: 260px;
+      width: 340px;
       margin: 0;
       font-family: "Times New Roman", serif;
       background: #ffffff;
@@ -154,6 +154,80 @@
       margin-top: 6px;
       line-height: 1.4;
     }
+
+    .dts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 4px;
+      align-items: center;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px dotted #ccc;
+    }
+
+    .dts-row input[type="text"] {
+      grid-column: 1 / 3;
+      margin-bottom: 0;
+    }
+
+    .dts-row .dur {
+      grid-column: 3;
+      font-size: 10px;
+      color: gray;
+      text-align: right;
+    }
+
+    .dts-row .dur.bad {
+      color: #cc0000;
+      font-weight: bold;
+    }
+
+    .dts-row .rm {
+      grid-column: 3;
+      grid-row: 2;
+      padding: 4px 8px;
+    }
+
+    input[type="time"],
+    input[type="date"],
+    input[type="number"],
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Times New Roman", serif;
+      font-size: 13px;
+      padding: 3px 4px;
+      border: 1px solid gray;
+      border-radius: 2px;
+    }
+
+    details summary {
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      color: gray;
+      margin-bottom: 8px;
+    }
+
+    #dtsErrors,
+    #dtsResult {
+      font-size: 11px;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    #dtsErrors {
+      color: #cc0000;
+    }
+
+    #fillDtsBtn {
+      width: 100%;
+      padding: 8px 0;
+      font-size: 13px;
+      background: #ffc300;
+      font-weight: bold;
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -204,7 +278,54 @@
       <button id="saveShortLeaveMinutes">Save</button>
       <div id="shortLeaveStatus"></div>
     </section>
+
+    <section>
+      <details id="dtsDetails">
+        <summary>DTS filling</summary>
+
+        <h2>Default config</h2>
+        <label for="dtsMode">Mode</label>
+        <select id="dtsMode">
+          <option value="wfh">Work from home — use the times below as-is</option>
+          <option value="office">Office — first row starts at system in-time</option>
+        </select>
+        <label for="dtsDate" style="margin-top:8px">Date (blank = today)</label>
+        <input type="date" id="dtsDate" />
+        <label for="dtsMinHours" style="margin-top:8px">Minimum hours per row</label>
+        <input type="number" id="dtsMinHours" min="0" step="0.5" />
+
+        <details style="margin-top:8px">
+          <summary>Dropdown matching (contains, case-insensitive)</summary>
+          <label for="dtsProject">Project</label>
+          <input type="text" id="dtsProject" />
+          <label for="dtsModule">Module</label>
+          <input type="text" id="dtsModule" />
+          <label for="dtsActivityType">Type of Activity</label>
+          <input type="text" id="dtsActivityType" />
+          <label for="dtsActivity">Activity Code &amp; Desc</label>
+          <input type="text" id="dtsActivity" />
+          <label for="dtsStatus">Status radio</label>
+          <input type="text" id="dtsStatus" />
+        </details>
+
+        <h2 style="margin-top:12px">Time rows</h2>
+        <div id="dtsRows"></div>
+        <div class="row">
+          <button id="dtsAddRow">+ Add row</button>
+          <button id="dtsSave">Save config</button>
+          <button id="dtsReset">Reset</button>
+        </div>
+        <div id="dtsErrors"></div>
+        <button id="fillDtsBtn">Fill DTS</button>
+        <div id="dtsResult"></div>
+        <div class="note">
+          Logs in, opens IT Services &rarr; DTS, adds the rows and leaves the
+          tab open for you to review. It does not press Save/Submit.
+        </div>
+      </details>
+    </section>
   </div>
+  <script src="dts-common.js"></script>
   <script src="popup.js"></script>
 </body>
 

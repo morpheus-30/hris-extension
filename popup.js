@@ -197,3 +197,198 @@ getDetailsBtn.addEventListener("click", () => {
     updateDisplay();
   });
 });
+
+// ---------- DTS filling ----------
+
+const dtsEls = {
+  mode: document.getElementById("dtsMode"),
+  date: document.getElementById("dtsDate"),
+  minHours: document.getElementById("dtsMinHours"),
+  project: document.getElementById("dtsProject"),
+  module: document.getElementById("dtsModule"),
+  activityType: document.getElementById("dtsActivityType"),
+  activity: document.getElementById("dtsActivity"),
+  status: document.getElementById("dtsStatus"),
+};
+const dtsRowsEl = document.getElementById("dtsRows");
+const dtsErrorsEl = document.getElementById("dtsErrors");
+const dtsResultEl = document.getElementById("dtsResult");
+const fillDtsBtn = document.getElementById("fillDtsBtn");
+
+const DTS_ERROR_MESSAGES = {
+  missing_credentials: "Save your User Id and Password above first.",
+  login_form_not_found: "Couldn't find the login form — the homepage may have changed.",
+  it_services_link_not_found: "Couldn't find the IT Services link on the HRIS homepage.",
+};
+
+function dtsDurationLabel(from, to) {
+  const f = dtsToMin(from);
+  const t = dtsToMin(to);
+  if (f === null || t === null) return "";
+  const d = t - f;
+  if (d <= 0) return "invalid";
+  return `${Math.floor(d / 60)}h ${String(d % 60).padStart(2, "0")}m`;
+}
+
+function readDtsConfig() {
+  return {
+    wfh: dtsEls.mode.value === "wfh",
+    date: dtsEls.date.value,
+    minHours: parseFloat(dtsEls.minHours.value),
+    project: dtsEls.project.value.trim(),
+    module: dtsEls.module.value.trim(),
+    activityType: dtsEls.activityType.value.trim(),
+    activity: dtsEls.activity.value.trim(),
+    status: dtsEls.status.value.trim(),
+    rows: Array.from(dtsRowsEl.querySelectorAll(".dts-row")).map((el) => ({
+      from: el.querySelector(".from").value,
+      to: el.querySelector(".to").value,
+      comment: el.querySelector(".comment").value,
+    })),
+  };
+}
+
+function refreshDtsValidation() {
+  const cfg = readDtsConfig();
+  const minMinutes = Math.round((cfg.minHours || 0) * 60);
+  dtsRowsEl.querySelectorAll(".dts-row").forEach((el, i) => {
+    const row = cfg.rows[i];
+    const dur = el.querySelector(".dur");
+    dur.textContent = dtsDurationLabel(row.from, row.to);
+    const f = dtsToMin(row.from);
+    const t = dtsToMin(row.to);
+    dur.classList.toggle("bad", f !== null && t !== null && t - f < minMinutes);
+  });
+  const errors = dtsValidate(cfg);
+  dtsErrorsEl.textContent = errors.join(" ");
+  return { cfg, errors };
+}
+
+function addDtsRow(row) {
+  const el = document.createElement("div");
+  el.className = "dts-row";
+
+  const from = document.createElement("input");
+  from.type = "time";
+  from.className = "from";
+  from.value = row.from || "";
+
+  const to = document.createElement("input");
+  to.type = "time";
+  to.className = "to";
+  to.value = row.to || "";
+
+  const dur = document.createElement("span");
+  dur.className = "dur";
+
+  const comment = document.createElement("input");
+  comment.type = "text";
+  comment.className = "comment";
+  comment.placeholder = "Comment";
+  comment.value = row.comment || "";
+
+  const rm = document.createElement("button");
+  rm.className = "rm";
+  rm.textContent = "✕";
+  rm.title = "Remove row";
+  rm.addEventListener("click", () => {
+    el.remove();
+    refreshDtsValidation();
+  });
+
+  [from, to, comment].forEach((i) => i.addEventListener("input", refreshDtsValidation));
+  el.append(from, to, dur, comment, rm);
+  dtsRowsEl.appendChild(el);
+}
+
+function renderDtsConfig(cfg) {
+  dtsEls.mode.value = cfg.wfh ? "wfh" : "office";
+  dtsEls.date.value = cfg.date || "";
+  dtsEls.minHours.value = cfg.minHours;
+  for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
+  dtsRowsEl.textContent = "";
+  cfg.rows.forEach(addDtsRow);
+  refreshDtsValidation();
+}
+
+function saveDtsConfig() {
+  return new Promise((resolve) => {
+    const { cfg, errors } = refreshDtsValidation();
+    if (errors.length) return resolve(false);
+    chrome.storage.local.set({ dtsConfig: cfg }, () => resolve(true));
+  });
+}
+
+function showDtsRun(run) {
+  if (!run) {
+    dtsResultEl.textContent = "";
+    return;
+  }
+  const time = formatFetchedAt(run.at || new Date().toISOString());
+  if (run.ok) {
+    dtsResultEl.style.color = "#007700";
+    dtsResultEl.textContent = `${time} — added ${run.added} entr${run.added === 1 ? "y" : "ies"}. Review and save in the DTS tab.`;
+  } else {
+    dtsResultEl.style.color = "#cc0000";
+    const msg = DTS_ERROR_MESSAGES[run.error] || run.detail || run.error || "Something went wrong.";
+    dtsResultEl.textContent = `${time} — ${msg}`;
+  }
+}
+
+document.getElementById("dtsAddRow").addEventListener("click", () => {
+  // Suggest the next slot: 30 min after the previous row, same length as it (at least the minimum)
+  const rows = readDtsConfig().rows;
+  const last = rows[rows.length - 1];
+  const lastTo = last ? dtsToMin(last.to) : null;
+  const minMinutes = Math.round((parseFloat(dtsEls.minHours.value) || 4) * 60);
+  if (lastTo !== null) {
+    const start = lastTo + 30;
+    addDtsRow({ from: dtsFromMin(start), to: dtsFromMin(start + minMinutes), comment: "" });
+  } else {
+    addDtsRow({ from: "09:30", to: dtsFromMin(9 * 60 + 30 + minMinutes), comment: "" });
+  }
+  refreshDtsValidation();
+});
+
+document.getElementById("dtsSave").addEventListener("click", async () => {
+  const ok = await saveDtsConfig();
+  dtsResultEl.style.color = ok ? "#007700" : "#cc0000";
+  dtsResultEl.textContent = ok ? "Config saved." : "Fix the errors above first.";
+  if (ok) setTimeout(() => (dtsResultEl.textContent = ""), 1500);
+});
+
+document.getElementById("dtsReset").addEventListener("click", () => {
+  renderDtsConfig(DTS_DEFAULTS);
+  chrome.storage.local.remove("dtsConfig");
+});
+
+Object.values(dtsEls).forEach((el) => el.addEventListener("input", refreshDtsValidation));
+
+fillDtsBtn.addEventListener("click", async () => {
+  if (!(await saveDtsConfig())) {
+    dtsResultEl.style.color = "#cc0000";
+    dtsResultEl.textContent = "Fix the errors above first.";
+    return;
+  }
+  fillDtsBtn.disabled = true;
+  fillDtsBtn.textContent = "Filling… (keep this browser open)";
+  dtsResultEl.style.color = "";
+  dtsResultEl.textContent = "Logging in and opening DTS — this takes about a minute.";
+
+  chrome.runtime.sendMessage({ action: "FILL_DTS" }, (response) => {
+    fillDtsBtn.disabled = false;
+    fillDtsBtn.textContent = "Fill DTS";
+    if (chrome.runtime.lastError) {
+      // Popup may have been closed/reopened mid-run; the last run is stored by the background.
+      dtsResultEl.style.color = "#cc0000";
+      dtsResultEl.textContent = chrome.runtime.lastError.message;
+      return;
+    }
+    showDtsRun({ ...response, at: new Date().toISOString() });
+  });
+});
+
+chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dtsLastRun }) => {
+  renderDtsConfig({ ...DTS_DEFAULTS, ...(dtsConfig || {}) });
+  showDtsRun(dtsLastRun);
+});
