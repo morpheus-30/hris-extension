@@ -617,14 +617,14 @@ async function fillDtsInPage(cfg) {
     }
 
     // Optional: press Save / Submit on the form (off unless chosen in the popup)
-    if (cfg.submitAction === "save" || cfg.submitAction === "submit") {
+    if (cfg.submitAction === "submit") {
       await sleep(1000);
-      const wanted = cfg.submitAction === "submit" ? /^\s*submit/i : /^\s*save/i;
+      const wanted = /^\s*submit/i;
       const btn = Array.from(
         document.querySelectorAll('button, input[type="button"], input[type="submit"], a.btn, a[role="button"]')
       ).find((el) => el.offsetParent !== null && !el.disabled && wanted.test(el.value || el.textContent || ""));
       if (!btn) {
-        return { ok: false, error: `Entries were added, but no visible "${cfg.submitAction}" button was found. Please press it yourself.` };
+        return { ok: false, error: `Entries were added, but no visible "Submit" button was found. Please press it yourself.` };
       }
       const label = (btn.value || btn.textContent || "").trim();
       // Auto-accept a native "are you sure?" prompt for this one click only
