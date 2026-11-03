@@ -32,6 +32,10 @@ Open the popup's **DTS filling** section:
   - Two rows are pre-filled; add or remove rows as needed. A row can't be longer than the maximum, From must be before To, and rows can't overlap.
 - **Fill DTS** logs in, opens IT Services -> DTS, adds every row and leaves the DTS tab open for you to review. By default it does not press Save/Submit; choose "Auto-click Submit" under "After adding the rows" to change that.
 
+## Notifications
+
+When **Get Details** or **Fill DTS** finishes, a desktop notification shows the result (for example "Out time: 17:46"), so you still see it if the popup closed. Turn it off under Out time -> Settings -> Notifications.
+
 ## Notes
 
 - Your credentials are stored locally in your browser, not sent anywhere else.

@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Estimated Out Time",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Adds an estimated out-time badge to your HRIS attendance calendar, and can fetch it automatically via login.",
-  "permissions": ["storage", "tabs", "scripting"],
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "notifications"
+  ],
   "host_permissions": [
     "https://hris.yamaha-motor.in:3333/*",
     "https://hrisyna.yamaha-motor.in/*"
@@ -12,14 +17,26 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": "icon128.png"
   },
   "content_scripts": [
     {
-      "matches": ["https://hrisyna.yamaha-motor.in/*"],
-      "js": ["content.js"],
-      "css": ["styles.css"],
+      "matches": [
+        "https://hrisyna.yamaha-motor.in/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "icons": {
+    "16": "icon128.png",
+    "48": "icon128.png",
+    "128": "icon128.png"
+  }
 }

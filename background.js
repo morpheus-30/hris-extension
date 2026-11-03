@@ -29,6 +29,43 @@ function log(...args) {
   console.log("[GetDetails]", ...args);
 }
 
+// ---- Notifications (so you still see the result if the popup closed) ----
+const NOTIFY_ERRORS = {
+  missing_credentials: "Save your User Id and Password in the popup first.",
+  login_form_not_found: "Couldn't find the login form — the homepage may have changed.",
+  hris_link_not_found: "Couldn't find the HRIS link after login.",
+  it_services_link_not_found: "Couldn't find the IT Services link on the HRIS homepage.",
+  no_punch_found: "No punch found for today yet.",
+};
+
+async function notify(title, message) {
+  try {
+    const { notifications } = await chrome.storage.sync.get({ notifications: true });
+    if (!notifications) return;
+    chrome.notifications.create({ type: "basic", iconUrl: "icon128.png", title, message, priority: 2 });
+  } catch (e) {
+    log("notify failed:", e?.message || e);
+  }
+}
+
+function notifyGetDetails(res) {
+  if (res?.ok) {
+    const r = res.result;
+    if (r.alreadyOut) notify("Already clocked out", `Out at ${r.outTimeText} (in at ${minutesToTime(r.inTime)}).`);
+    else notify(`Out time: ${r.estimateText}`, `In at ${minutesToTime(r.inTime)}. You can leave at ${r.estimateText}.`);
+  } else {
+    notify("Couldn't get your out time", NOTIFY_ERRORS[res?.error] || res?.error || "Something went wrong.");
+  }
+}
+
+function notifyDts(res) {
+  if (res?.ok) {
+    notify("DTS filled", `Added ${res.added} entr${res.added === 1 ? "y" : "ies"}${res.submitted ? ` and clicked "${res.submitted}"` : ". Review it in the DTS tab"}.`);
+  } else {
+    notify("DTS fill failed", NOTIFY_ERRORS[res?.error] || res?.detail || res?.error || "Something went wrong.");
+  }
+}
+
 function minutesToTime(mins) {
   mins = ((mins % 1440) + 1440) % 1440;
   const h = Math.floor(mins / 60);
@@ -792,11 +829,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     runGetDetails()
       .then((result) => {
         log("onMessage: sending response", result);
+        notifyGetDetails(result);
         sendResponse(result);
       })
       .catch((e) => {
         log("onMessage: unexpected error", e?.message || e);
-        sendResponse({ ok: false, error: e?.message || String(e) });
+        const result = { ok: false, error: e?.message || String(e) };
+        notifyGetDetails(result);
+        sendResponse(result);
       });
     return true; // keep the message channel open for the async response
   }
@@ -805,9 +845,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     runFillDts()
       .then(async (result) => {
         await chrome.storage.local.set({ dtsLastRun: { at: new Date().toISOString(), ...result } });
+        notifyDts(result);
         sendResponse(result);
       })
-      .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }));
+      .catch((e) => {
+        const result = { ok: false, error: e?.message || String(e) };
+        notifyDts(result);
+        sendResponse(result);
+      });
     return true;
   }
   return false;

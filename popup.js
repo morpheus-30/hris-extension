@@ -475,3 +475,13 @@ chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dt
     if (last && document.getElementById(last)) show(last);
   } catch (e) { /* storage unavailable */ }
 })();
+
+// ---------- Notifications toggle ----------
+
+(function setupNotifyToggle() {
+  const toggle = document.getElementById("notifyToggle");
+  chrome.storage.sync.get({ notifications: true }, ({ notifications }) => {
+    toggle.checked = notifications;
+  });
+  toggle.addEventListener("change", () => chrome.storage.sync.set({ notifications: toggle.checked }));
+})();
