@@ -201,9 +201,6 @@ getDetailsBtn.addEventListener("click", () => {
 // ---------- DTS filling ----------
 
 const dtsEls = {
-  mode: document.getElementById("dtsMode"),
-  startSource: document.getElementById("dtsStartSource"),
-  customStart: document.getElementById("dtsCustomStart"),
   date: document.getElementById("dtsDate"),
   maxHours: document.getElementById("dtsMaxHours"),
   project: document.getElementById("dtsProject"),
@@ -223,20 +220,31 @@ const DTS_ERROR_MESSAGES = {
   it_services_link_not_found: "Couldn't find the IT Services link on the HRIS homepage.",
 };
 
-function dtsDurationLabel(from, to) {
-  const f = dtsToMin(from);
-  const t = dtsToMin(to);
-  if (f === null || t === null) return "";
-  const d = t - f;
-  if (d <= 0) return "invalid";
-  return `${Math.floor(d / 60)}h ${String(d % 60).padStart(2, "0")}m`;
+const DTS_FROM_OPTIONS = [
+  ["time", "Custom time"],
+  ["intime", "System in-time"],
+  ["prev", "After previous row"],
+];
+const DTS_TO_OPTIONS = [
+  ["time", "Custom time"],
+  ["outtime", "System out-time"],
+  ["hours", "Hours after From"],
+];
+
+function dtsReadRow(el) {
+  return {
+    fromType: el.querySelector(".fromType").value,
+    from: el.querySelector(".from").value,
+    gap: parseFloat(el.querySelector(".gap").value),
+    toType: el.querySelector(".toType").value,
+    to: el.querySelector(".to").value,
+    hours: parseFloat(el.querySelector(".hours").value),
+    comment: el.querySelector(".comment").value,
+  };
 }
 
 function readDtsConfig() {
   return {
-    wfh: dtsEls.mode.value === "wfh",
-    startSource: dtsEls.startSource.value,
-    customStart: dtsEls.customStart.value,
     date: dtsEls.date.value,
     maxHours: parseFloat(dtsEls.maxHours.value),
     project: dtsEls.project.value.trim(),
@@ -244,73 +252,104 @@ function readDtsConfig() {
     activityType: dtsEls.activityType.value.trim(),
     activity: dtsEls.activity.value.trim(),
     status: dtsEls.status.value.trim(),
-    rows: Array.from(dtsRowsEl.querySelectorAll(".dts-row")).map((el) => ({
-      from: el.querySelector(".from").value,
-      to: el.querySelector(".to").value,
-      comment: el.querySelector(".comment").value,
-    })),
+    rows: Array.from(dtsRowsEl.querySelectorAll(".dts-row")).map(dtsReadRow),
   };
 }
 
 function refreshDtsValidation() {
   const cfg = readDtsConfig();
-  document.getElementById("dtsStartWrap").style.display = cfg.wfh ? "none" : "block";
-  dtsEls.customStart.style.display = cfg.startSource === "custom" ? "block" : "none";
-  const maxMinutes = Math.round((cfg.maxHours || 0) * 60);
+  const resolved = dtsResolveRows(cfg.rows, null, cfg.maxHours).rows;
   dtsRowsEl.querySelectorAll(".dts-row").forEach((el, i) => {
     const row = cfg.rows[i];
+    // show only the input that matches each dropdown
+    el.querySelector(".from").style.display = row.fromType === "time" ? "" : "none";
+    el.querySelector(".gapWrap").style.display = row.fromType === "prev" ? "" : "none";
+    el.querySelector(".to").style.display = row.toType === "time" ? "" : "none";
+    el.querySelector(".hoursWrap").style.display = row.toType === "hours" ? "" : "none";
+
+    const { fromMin, toMin } = resolved[i];
     const dur = el.querySelector(".dur");
-    dur.textContent = dtsDurationLabel(row.from, row.to);
-    const f = dtsToMin(row.from);
-    const t = dtsToMin(row.to);
-    dur.classList.toggle("bad", f !== null && t !== null && t - f > maxMinutes);
+    const known = fromMin !== null && toMin !== null;
+    const d = known ? toMin - fromMin : null;
+    dur.textContent = known
+      ? d > 0 ? `${Math.floor(d / 60)}h ${String(d % 60).padStart(2, "0")}m` : "invalid"
+      : "set at run time";
+    dur.classList.toggle("bad", known && (d <= 0 || d > Math.round((cfg.maxHours || 0) * 60)));
   });
   const errors = dtsValidate(cfg);
   dtsErrorsEl.textContent = errors.join(" ");
   return { cfg, errors };
 }
 
+function dtsSelect(cls, options, value) {
+  const sel = document.createElement("select");
+  sel.className = cls;
+  options.forEach(([v, label]) => sel.add(new Option(label, v)));
+  sel.value = value;
+  return sel;
+}
+
+function dtsInput(type, cls, value, extra = {}) {
+  const input = document.createElement("input");
+  input.type = type;
+  input.className = cls;
+  input.value = value ?? "";
+  Object.assign(input, extra);
+  return input;
+}
+
+function dtsLabeled(wrapCls, text, input) {
+  const wrap = document.createElement("div");
+  wrap.className = wrapCls;
+  const lbl = document.createElement("span");
+  lbl.className = "lbl";
+  lbl.textContent = text;
+  wrap.append(lbl, input);
+  return wrap;
+}
+
 function addDtsRow(row) {
   const el = document.createElement("div");
   el.className = "dts-row";
 
-  const from = document.createElement("input");
-  from.type = "time";
-  from.className = "from";
-  from.value = row.from || "";
+  const fromCell = document.createElement("div");
+  fromCell.className = "cell";
+  fromCell.append(
+    dtsSelect("fromType", DTS_FROM_OPTIONS, row.fromType || "time"),
+    dtsInput("time", "from", row.from),
+    dtsLabeled("gapWrap", "minutes after previous row", dtsInput("number", "gap", row.gap ?? 30, { min: 0, step: 5 }))
+  );
 
-  const to = document.createElement("input");
-  to.type = "time";
-  to.className = "to";
-  to.value = row.to || "";
+  const toCell = document.createElement("div");
+  toCell.className = "cell";
+  toCell.append(
+    dtsSelect("toType", DTS_TO_OPTIONS, row.toType || "time"),
+    dtsInput("time", "to", row.to),
+    dtsLabeled("hoursWrap", "hours after From", dtsInput("number", "hours", row.hours ?? 4, { min: 0.5, step: 0.5 }))
+  );
+
+  const comment = dtsInput("text", "comment", row.comment, { placeholder: "Comment" });
 
   const dur = document.createElement("span");
   dur.className = "dur";
-
-  const comment = document.createElement("input");
-  comment.type = "text";
-  comment.className = "comment";
-  comment.placeholder = "Comment";
-  comment.value = row.comment || "";
-
   const rm = document.createElement("button");
   rm.className = "rm";
-  rm.textContent = "✕";
-  rm.title = "Remove row";
+  rm.textContent = "✕ Remove";
   rm.addEventListener("click", () => {
     el.remove();
     refreshDtsValidation();
   });
+  const foot = document.createElement("div");
+  foot.className = "foot";
+  foot.append(dur, rm);
 
-  [from, to, comment].forEach((i) => i.addEventListener("input", refreshDtsValidation));
-  el.append(from, to, dur, comment, rm);
+  el.append(fromCell, toCell, comment, foot);
+  el.addEventListener("input", refreshDtsValidation);
+  el.addEventListener("change", refreshDtsValidation);
   dtsRowsEl.appendChild(el);
 }
 
 function renderDtsConfig(cfg) {
-  dtsEls.mode.value = cfg.wfh ? "wfh" : "office";
-  dtsEls.startSource.value = cfg.startSource;
-  dtsEls.customStart.value = cfg.customStart || "";
   dtsEls.date.value = cfg.date || "";
   dtsEls.maxHours.value = cfg.maxHours;
   for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
@@ -344,17 +383,14 @@ function showDtsRun(run) {
 }
 
 document.getElementById("dtsAddRow").addEventListener("click", () => {
-  // Suggest the next slot: 30 min after the previous row, same length as it (at least the minimum)
-  const rows = readDtsConfig().rows;
-  const last = rows[rows.length - 1];
-  const lastTo = last ? dtsToMin(last.to) : null;
-  const maxMinutes = Math.round((parseFloat(dtsEls.maxHours.value) || 4) * 60);
-  if (lastTo !== null) {
-    const start = lastTo + 30;
-    addDtsRow({ from: dtsFromMin(start), to: dtsFromMin(start + maxMinutes), comment: "" });
-  } else {
-    addDtsRow({ from: "09:30", to: dtsFromMin(9 * 60 + 30 + maxMinutes), comment: "" });
-  }
+  const maxHours = parseFloat(dtsEls.maxHours.value) || 4;
+  const last = readDtsConfig().rows.at(-1);
+  // New rows default to "30 min after the previous row, for the maximum length"
+  addDtsRow(
+    last
+      ? { fromType: "prev", gap: 30, toType: "hours", hours: maxHours, comment: "" }
+      : { fromType: "time", from: "09:30", toType: "hours", hours: maxHours, comment: "" }
+  );
   refreshDtsValidation();
 });
 
@@ -387,7 +423,6 @@ fillDtsBtn.addEventListener("click", async () => {
     fillDtsBtn.disabled = false;
     fillDtsBtn.textContent = "Fill DTS";
     if (chrome.runtime.lastError) {
-      // Popup may have been closed/reopened mid-run; the last run is stored by the background.
       dtsResultEl.style.color = "#cc0000";
       dtsResultEl.textContent = chrome.runtime.lastError.message;
       return;
@@ -397,6 +432,8 @@ fillDtsBtn.addEventListener("click", async () => {
 });
 
 chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dtsLastRun }) => {
-  renderDtsConfig({ ...DTS_DEFAULTS, ...(dtsConfig || {}) });
+  // Configs saved by older versions (global office/WFH mode) keep only their rows' plain times.
+  const saved = dtsConfig && Array.isArray(dtsConfig.rows) ? dtsConfig : {};
+  renderDtsConfig({ ...DTS_DEFAULTS, ...saved });
   showDtsRun(dtsLastRun);
 });

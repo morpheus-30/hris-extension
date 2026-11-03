@@ -449,6 +449,49 @@ function dtsFormPresent() {
   return Boolean(document.getElementById("resultModel.applyDate"));
 }
 
+// ---- Injected into the DTS tab (world: MAIN): set the date and read the system in/out time ----
+async function prepareDtsPage(dateLabel, needIn, needOut) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const toMin = (text) => {
+    const m = (text || "").match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return null;
+    let h = parseInt(m[1], 10);
+    const ap = m[3].toUpperCase();
+    if (ap === "PM" && h !== 12) h += 12;
+    if (ap === "AM" && h === 12) h = 0;
+    return h * 60 + parseInt(m[2], 10);
+  };
+  const read = (id) => {
+    const el = document.getElementById(id);
+    return el ? toMin(el.value) : null;
+  };
+
+  const dateField = document.getElementById("resultModel.applyDate");
+  if (!dateField) return { ok: false, error: "DTS form not found on this page." };
+  if (dateLabel) {
+    dateField.value = dateLabel;
+  } else {
+    const d = new Date();
+    dateField.value = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  }
+  try {
+    if (typeof window.searchDtsInTimeOutTime === "function") window.searchDtsInTimeOutTime(dateField);
+  } catch (e) {
+    console.warn("[DTS fill] searchDtsInTimeOutTime failed:", e);
+  }
+
+  // Give the lookup time to answer (the in-time is what the original script waited for)
+  await sleep(2500);
+  const start = Date.now();
+  while (
+    Date.now() - start < 8000 &&
+    ((needIn && read("resultModel.inTime") === null) || (needOut && read("resultModel.outTime") === null))
+  ) {
+    await sleep(200);
+  }
+  return { ok: true, inMin: read("resultModel.inTime"), outMin: read("resultModel.outTime") };
+}
+
 // ---- Injected into the DTS tab (world: MAIN). Must be self-contained. ----
 async function fillDtsInPage(cfg) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -474,15 +517,6 @@ async function fillDtsInPage(cfg) {
     const h24 = Math.floor(mins / 60) % 24;
     const m = mins % 60;
     return `${String(h24 % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h24 >= 12 ? "PM" : "AM"}`;
-  };
-  const from12h = (text) => {
-    const m = (text || "").match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!m) return null;
-    let h = parseInt(m[1], 10);
-    const ap = m[3].toUpperCase();
-    if (ap === "PM" && h !== 12) h += 12;
-    if (ap === "AM" && h === 12) h = 0;
-    return h * 60 + parseInt(m[2], 10);
   };
 
   async function pick(id, needle, label, hooks) {
@@ -517,15 +551,12 @@ async function fillDtsInPage(cfg) {
     return document.getElementById("resultModel.status2");
   }
 
-  let offset = 0;
   function setTimes(fromMin, toMin, withDuration = true) {
     const f = document.getElementById("timepicker1");
     const t = document.getElementById("timepicker2");
     if (!f || !t) throw new Error("Time fields not found.");
     if (!Number.isFinite(fromMin) || !Number.isFinite(toMin)) {
-      throw new Error(
-        `Invalid row times (${fromMin} - ${toMin}). Debug: ${JSON.stringify({ wfh: cfg.wfh, customStartMin: cfg.customStartMin, offset, rows: cfg.rows })}`
-      );
+      throw new Error(`Invalid row times (${fromMin} - ${toMin}).`);
     }
     f.value = to12h(fromMin);
     t.value = to12h(toMin);
@@ -538,36 +569,10 @@ async function fillDtsInPage(cfg) {
   };
 
   try {
-    // Date (also triggers the lookup of the system in-time / out-time)
-    const dateField = document.getElementById("resultModel.applyDate");
-    if (!dateField) throw new Error("DTS form not found on this page.");
-    if (cfg.date) {
-      dateField.value = cfg.date;
-    } else {
-      const d = new Date();
-      dateField.value = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-    }
-    call("searchDtsInTimeOutTime", dateField);
-    await sleep(2500);
-
-    // Office mode: shift every row so the first one starts at the system in-time
-    // (or at the user-defined start time)
-    offset = 0;
-    if (!cfg.wfh) {
-      let startMin = cfg.customStartMin;
-      if (typeof startMin !== "number" || !Number.isFinite(startMin)) { // null/undefined = use system in-time
-        // Same as the original script: read the in-time the form loads for the date
-        await waitFor(() => from12h((document.getElementById("resultModel.inTime") || {}).value) !== null);
-        startMin = from12h((document.getElementById("resultModel.inTime") || {}).value);
-        if (startMin === null || !Number.isFinite(startMin)) throw new Error("Office mode needs a system in-time, but none was found for this date.");
-      }
-      offset = startMin - cfg.rows[0].fromMin;
-    }
-
     let added = 0;
     for (const row of cfg.rows) {
-      const fromMin = row.fromMin + offset;
-      const toMin = row.toMin + offset;
+      const fromMin = row.fromMin;
+      const toMin = row.toMin;
 
       setTimes(fromMin, toMin);
       await sleep(1000); // same breathing room the original console script had
@@ -646,6 +651,7 @@ async function runFillDts() {
   const cfg = { ...DTS_DEFAULTS, ...(dtsConfig || {}) };
   const problems = dtsValidate(cfg);
   if (problems.length) return { ok: false, error: "invalid_config", detail: problems.join(" ") };
+  const needs = dtsNeedsSystemTimes(cfg.rows);
 
   // A long-running injected script doesn't count as activity for the service
   // worker's idle timer, so ping an extension API while we work.
@@ -709,21 +715,36 @@ async function runFillDts() {
     await chrome.tabs.update(dtsTabId, { active: true });
     await new Promise((r) => setTimeout(r, 1000));
 
+    // Set the date and read the system in/out time the form loads for it
+    const [prepRun] = await chrome.scripting.executeScript({
+      target: { tabId: dtsTabId },
+      world: "MAIN",
+      func: prepareDtsPage,
+      args: [dtsDateLabel(cfg.date), needs.inTime, needs.outTime],
+    });
+    log("runFillDts: prepare result =", prepRun?.result);
+    if (!prepRun?.result?.ok) return { ok: false, error: prepRun?.result?.error || "Couldn't prepare the DTS form." };
+
+    // Now every row's From/To can be turned into concrete times
+    const resolved = dtsResolveRows(
+      cfg.rows,
+      { inMin: prepRun.result.inMin, outMin: prepRun.result.outMin },
+      cfg.maxHours
+    );
+    if (resolved.errors.length) return { ok: false, error: "invalid_config", detail: resolved.errors.join(" ") };
+
     const [fillRun] = await chrome.scripting.executeScript({
       target: { tabId: dtsTabId },
       world: "MAIN",
       func: fillDtsInPage,
       args: [
         {
-          wfh: cfg.wfh,
-          customStartMin: cfg.startSource === "custom" ? dtsToMin(cfg.customStart) : null,
-          date: dtsDateLabel(cfg.date),
           project: cfg.project,
           module: cfg.module,
           activityType: cfg.activityType,
           activity: cfg.activity,
           status: cfg.status,
-          rows: cfg.rows.map((r) => ({ fromMin: dtsToMin(r.from), toMin: dtsToMin(r.to), comment: r.comment })),
+          rows: resolved.rows,
         },
       ],
     });

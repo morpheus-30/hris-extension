@@ -157,24 +157,43 @@
 
     .dts-row {
       display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 4px;
-      align-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 8px;
       margin-bottom: 8px;
       padding-bottom: 8px;
       border-bottom: 1px dotted #ccc;
     }
 
-    .dts-row input[type="text"] {
-      grid-column: 1 / 3;
+    .dts-row .cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .dts-row .cell span.lbl {
+      font-size: 10px;
+      color: gray;
+    }
+
+    .dts-row input[type="text"],
+    .dts-row .cell input {
       margin-bottom: 0;
     }
 
+    .dts-row .comment {
+      grid-column: 1 / 3;
+    }
+
+    .dts-row .foot {
+      grid-column: 1 / 3;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
     .dts-row .dur {
-      grid-column: 3;
       font-size: 10px;
       color: gray;
-      text-align: right;
     }
 
     .dts-row .dur.bad {
@@ -183,9 +202,7 @@
     }
 
     .dts-row .rm {
-      grid-column: 3;
-      grid-row: 2;
-      padding: 4px 8px;
+      padding: 2px 8px;
     }
 
     input[type="time"],
@@ -284,20 +301,7 @@
         <summary>DTS filling</summary>
 
         <h2>Default config</h2>
-        <label for="dtsMode">Mode</label>
-        <select id="dtsMode">
-          <option value="wfh">Work from home — use the times below as-is</option>
-          <option value="office">Office — shift rows to start at in-time / custom time</option>
-        </select>
-        <div id="dtsStartWrap" style="margin-top:8px">
-          <label for="dtsStartSource">Office start time</label>
-          <select id="dtsStartSource">
-            <option value="intime">Use system in-time</option>
-            <option value="custom">Custom time</option>
-          </select>
-          <input type="time" id="dtsCustomStart" style="margin-top:4px" />
-        </div>
-        <label for="dtsDate" style="margin-top:8px">Date (blank = today)</label>
+        <label for="dtsDate">Date (blank = today)</label>
         <input type="date" id="dtsDate" />
         <label for="dtsMaxHours" style="margin-top:8px">Maximum hours per row</label>
         <input type="number" id="dtsMaxHours" min="0.5" step="0.5" />
