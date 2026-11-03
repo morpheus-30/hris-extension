@@ -17,16 +17,50 @@ const DTS_DEFAULTS = {
   date: "", // "" = today, otherwise "YYYY-MM-DD" (from <input type="date">)
   submitAction: "none", // after the rows are added: "none" (review only) or "submit"
   maxHours: 4, // maximum duration of a single row, in hours
-  project: "YME",
-  module: "SAP",
-  activityType: "Coding",
-  activity: "Coding",
-  status: "progress", // matches the "Work In Progress" radio
+  // Profiles: named presets of the dropdown choices (matched by "contains", case-insensitive).
+  // `status` is "progress" (Work In progress) or "complete" (Completed).
+  profiles: [
+    { id: "default", name: "Default", project: "YME", module: "SAP", activityType: "Coding", activity: "Coding", status: "progress" },
+  ],
+  defaultProfileId: "default",
   rows: [
     { fromType: "time", from: "09:30", toType: "time", to: "13:30", hours: 4, gap: 30, comment: "Coursera" },
     { fromType: "time", from: "14:00", toType: "time", to: "17:00", hours: 3, gap: 30, comment: "Handover Call and EHC Dashboard changes" },
   ],
 };
+
+// Brings any saved config (including ones from older versions that had a single set of
+// project/module/... fields) up to the current shape.
+function dtsNormalizeConfig(saved) {
+  const cfg = { ...JSON.parse(JSON.stringify(DTS_DEFAULTS)), ...(saved || {}) };
+  if (!Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
+    const legacy = saved || {};
+    cfg.profiles = [
+      {
+        id: "default",
+        name: "Default",
+        project: legacy.project || DTS_DEFAULTS.profiles[0].project,
+        module: legacy.module || DTS_DEFAULTS.profiles[0].module,
+        activityType: legacy.activityType || DTS_DEFAULTS.profiles[0].activityType,
+        activity: legacy.activity || DTS_DEFAULTS.profiles[0].activity,
+        status: /complete/i.test(legacy.status || "") ? "complete" : "progress",
+      },
+    ];
+    cfg.defaultProfileId = "default";
+  }
+  if (!cfg.profiles.some((p) => p.id === cfg.defaultProfileId)) cfg.defaultProfileId = cfg.profiles[0].id;
+  for (const k of ["project", "module", "activityType", "activity", "status"]) delete cfg[k];
+  return cfg;
+}
+
+// The profile a row uses (its own, else the default one).
+function dtsProfileFor(cfg, row) {
+  return (
+    cfg.profiles.find((p) => p.id === row.profileId) ||
+    cfg.profiles.find((p) => p.id === cfg.defaultProfileId) ||
+    cfg.profiles[0]
+  );
+}
 
 function dtsToMin(hhmm) {
   const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm || "").trim());
@@ -126,8 +160,21 @@ function dtsValidate(cfg) {
   if (cfg.date && !dtsDateLabel(cfg.date)) errors.push("Date is invalid.");
   if (!["none", "submit"].includes(cfg.submitAction || "none")) errors.push("Invalid submit option.");
   if (!(Number(cfg.maxHours) > 0)) errors.push("Maximum hours per row must be more than 0.");
-  for (const key of ["project", "module", "activityType", "activity", "status"]) {
-    if (!String(cfg[key] || "").trim()) errors.push(`"${key}" match text can't be empty.`);
+  if (!Array.isArray(cfg.profiles) || cfg.profiles.length === 0) {
+    errors.push("Add at least one profile.");
+  } else {
+    const names = new Set();
+    cfg.profiles.forEach((p, i) => {
+      const label = `Profile "${p.name || i + 1}"`;
+      const name = String(p.name || "").trim().toLowerCase();
+      if (!name) errors.push(`Profile ${i + 1}: enter a name.`);
+      else if (names.has(name)) errors.push(`${label}: name is used twice.`);
+      names.add(name);
+      for (const [key, text] of [["project", "Project"], ["module", "Module"], ["activityType", "Type of activity"], ["activity", "Activity"]]) {
+        if (!String(p[key] || "").trim()) errors.push(`${label}: ${text} can't be empty.`);
+      }
+      if (p.status !== "progress" && p.status !== "complete") errors.push(`${label}: pick a status.`);
+    });
   }
   errors.push(...dtsResolveRows(dtsEffectiveRows(cfg), null, cfg.maxHours).errors);
   return errors;

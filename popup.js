@@ -205,12 +205,19 @@ const dtsEls = {
   mode: document.getElementById("dtsMode"),
   date: document.getElementById("dtsDate"),
   maxHours: document.getElementById("dtsMaxHours"),
+};
+const dtsProfileEls = {
+  select: document.getElementById("dtsProfileSelect"),
+  name: document.getElementById("dtsProfileName"),
   project: document.getElementById("dtsProject"),
   module: document.getElementById("dtsModule"),
   activityType: document.getElementById("dtsActivityType"),
   activity: document.getElementById("dtsActivity"),
   status: document.getElementById("dtsStatus"),
 };
+
+// Profiles live here while the popup is open; saved with the rest of the config.
+const dtsProfileState = { profiles: [], defaultId: "", selectedId: "" };
 const dtsRowsEl = document.getElementById("dtsRows");
 const dtsErrorsEl = document.getElementById("dtsErrors");
 const dtsResultEl = document.getElementById("dtsResult");
@@ -242,6 +249,7 @@ function dtsReadRow(el) {
     to: el.querySelector(".to").value,
     hours: parseFloat(el.querySelector(".hours").value),
     comment: el.querySelector(".comment").value,
+    profileId: el.querySelector(".profile").value,
   };
 }
 
@@ -251,11 +259,15 @@ function readDtsConfig() {
     mode: dtsEls.mode.value,
     date: dtsEls.date.value,
     maxHours: parseFloat(dtsEls.maxHours.value),
-    project: dtsEls.project.value.trim(),
-    module: dtsEls.module.value.trim(),
-    activityType: dtsEls.activityType.value.trim(),
-    activity: dtsEls.activity.value.trim(),
-    status: dtsEls.status.value.trim(),
+    profiles: dtsProfileState.profiles.map((p) => ({
+      ...p,
+      name: p.name.trim(),
+      project: p.project.trim(),
+      module: p.module.trim(),
+      activityType: p.activityType.trim(),
+      activity: p.activity.trim(),
+    })),
+    defaultProfileId: dtsProfileState.defaultId,
     rows: Array.from(dtsRowsEl.querySelectorAll(".dts-row")).map(dtsReadRow),
   };
 }
@@ -336,6 +348,11 @@ function addDtsRow(row) {
     dtsLabeled("hoursWrap", "hours long", dtsInput("number", "hours", row.hours ?? 4, { min: 0.5, step: 0.5 }))
   );
 
+  const profile = document.createElement("select");
+  profile.className = "profile";
+  profile.title = "Profile (dropdown choices) for this row";
+  fillProfileOptions(profile, row.profileId || dtsProfileState.defaultId);
+
   const comment = dtsInput("text", "comment", row.comment, { placeholder: "Comment" });
 
   const dur = document.createElement("span");
@@ -351,19 +368,110 @@ function addDtsRow(row) {
   foot.className = "foot";
   foot.append(dur, rm);
 
-  el.append(fromCell, toCell, comment, foot);
+  el.append(fromCell, toCell, profile, comment, foot);
   el.addEventListener("input", refreshDtsValidation);
   el.addEventListener("change", refreshDtsValidation);
   dtsRowsEl.appendChild(el);
 }
+
+// ---------- Profiles ----------
+
+function profileLabel(p) {
+  return p.id === dtsProfileState.defaultId ? `★ ${p.name || "(unnamed)"}` : p.name || "(unnamed)";
+}
+
+function fillProfileOptions(select, wantedId) {
+  select.textContent = "";
+  dtsProfileState.profiles.forEach((p) => select.add(new Option(profileLabel(p), p.id)));
+  select.value = dtsProfileState.profiles.some((p) => p.id === wantedId) ? wantedId : dtsProfileState.defaultId;
+}
+
+function selectedProfile() {
+  return dtsProfileState.profiles.find((p) => p.id === dtsProfileState.selectedId);
+}
+
+function renderProfileSelect() {
+  fillProfileOptions(dtsProfileEls.select, dtsProfileState.selectedId);
+  dtsProfileState.selectedId = dtsProfileEls.select.value;
+  const p = selectedProfile();
+  for (const k of ["name", "project", "module", "activityType", "activity", "status"]) {
+    dtsProfileEls[k].value = p ? p[k] : "";
+  }
+  document.getElementById("dtsProfileDefault").disabled = p?.id === dtsProfileState.defaultId;
+  document.getElementById("dtsProfileDelete").disabled = dtsProfileState.profiles.length <= 1;
+  refreshRowProfileSelects();
+}
+
+function refreshRowProfileSelects() {
+  dtsRowsEl.querySelectorAll(".dts-row .profile").forEach((sel) => fillProfileOptions(sel, sel.value));
+}
+
+function newProfileId() {
+  return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Typing in the editor updates the selected profile live
+["name", "project", "module", "activityType", "activity", "status"].forEach((k) => {
+  dtsProfileEls[k].addEventListener("input", () => {
+    const p = selectedProfile();
+    if (!p) return;
+    p[k] = dtsProfileEls[k].value;
+    if (k === "name") {
+      // keep the dropdowns in sync without losing the cursor in the name box
+      Array.from(dtsProfileEls.select.options).forEach((o) => {
+        if (o.value === p.id) o.textContent = profileLabel(p);
+      });
+      refreshRowProfileSelects();
+    }
+    refreshDtsValidation();
+  });
+});
+dtsProfileEls.select.addEventListener("change", () => {
+  dtsProfileState.selectedId = dtsProfileEls.select.value;
+  renderProfileSelect();
+});
+
+function addProfile(base) {
+  const p = { ...base, id: newProfileId() };
+  dtsProfileState.profiles.push(p);
+  dtsProfileState.selectedId = p.id;
+  renderProfileSelect();
+  refreshDtsValidation();
+  dtsProfileEls.name.focus();
+  dtsProfileEls.name.select();
+}
+
+document.getElementById("dtsProfileNew").addEventListener("click", () =>
+  addProfile({ name: "New profile", project: "", module: "", activityType: "", activity: "", status: "progress" })
+);
+document.getElementById("dtsProfileDup").addEventListener("click", () => {
+  const p = selectedProfile();
+  if (p) addProfile({ ...p, name: `${p.name} copy` });
+});
+document.getElementById("dtsProfileDefault").addEventListener("click", () => {
+  dtsProfileState.defaultId = dtsProfileState.selectedId;
+  renderProfileSelect();
+  refreshDtsValidation();
+});
+document.getElementById("dtsProfileDelete").addEventListener("click", () => {
+  if (dtsProfileState.profiles.length <= 1) return;
+  const gone = dtsProfileState.selectedId;
+  dtsProfileState.profiles = dtsProfileState.profiles.filter((p) => p.id !== gone);
+  if (dtsProfileState.defaultId === gone) dtsProfileState.defaultId = dtsProfileState.profiles[0].id;
+  dtsProfileState.selectedId = dtsProfileState.defaultId;
+  renderProfileSelect(); // rows that used it fall back to the default profile
+  refreshDtsValidation();
+});
 
 function renderDtsConfig(cfg) {
   dtsEls.mode.value = cfg.mode || "wfh";
   dtsEls.submitAction.value = cfg.submitAction || "none";
   dtsEls.date.value = cfg.date || "";
   dtsEls.maxHours.value = cfg.maxHours;
-  for (const k of ["project", "module", "activityType", "activity"]) dtsEls[k].value = cfg[k];
-  dtsEls.status.value = /complete/i.test(cfg.status || "") ? "complete" : "progress";
+  dtsProfileState.profiles = cfg.profiles.map((p) => ({ ...p }));
+  dtsProfileState.defaultId = cfg.defaultProfileId;
+  dtsProfileState.selectedId = cfg.defaultProfileId;
+  renderProfileSelect();
   dtsRowsEl.textContent = "";
   cfg.rows.forEach(addDtsRow);
   refreshDtsValidation();
@@ -425,7 +533,7 @@ document.getElementById("dtsSave").addEventListener("click", async () => {
 });
 
 document.getElementById("dtsReset").addEventListener("click", () => {
-  renderDtsConfig(DTS_DEFAULTS);
+  renderDtsConfig(dtsNormalizeConfig(null));
   chrome.storage.local.remove("dtsConfig");
 });
 
@@ -457,7 +565,7 @@ fillDtsBtn.addEventListener("click", async () => {
 chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dtsLastRun }) => {
   // Configs saved by older versions (global office/WFH mode) keep only their rows' plain times.
   const saved = dtsConfig && Array.isArray(dtsConfig.rows) ? dtsConfig : {};
-  renderDtsConfig({ ...DTS_DEFAULTS, ...saved });
+  renderDtsConfig(dtsNormalizeConfig(saved));
   showDtsRun(dtsLastRun);
 });
 

@@ -570,7 +570,7 @@ async function fillDtsInPage(cfg) {
     await sleep(1500); // let dependent dropdowns load via AJAX
   }
 
-  function findStatusRadio() {
+  function findStatusRadio(status) {
     const radios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
       (r) => (r.id || "").startsWith("resultModel.status") || (r.name || "").includes("status")
     );
@@ -583,10 +583,10 @@ async function fillDtsInPage(cfg) {
       if (radio.closest("label")) text += " " + radio.closest("label").textContent;
       if (radio.nextSibling && radio.nextSibling.textContent) text += " " + radio.nextSibling.textContent;
       text += " " + (radio.value || "");
-      if (matches(text, cfg.status)) return radio;
+      if (matches(text, status)) return radio;
     }
     // Fallback ids: Completed is status1, Work In Progress is status2
-    return document.getElementById(matches(cfg.status, "complete") ? "resultModel.status1" : "resultModel.status2");
+    return document.getElementById(matches(status, "complete") ? "resultModel.status1" : "resultModel.status2");
   }
 
   function setTimes(fromMin, toMin, withDuration = true) {
@@ -614,16 +614,16 @@ async function fillDtsInPage(cfg) {
 
       setTimes(fromMin, toMin);
       await sleep(1000); // same breathing room the original console script had
-      await pick("resultModel.project", cfg.project, "Project", [
+      await pick("resultModel.project", row.profile.project, "Project", [
         "setHiddentoBlank:", "searchModuleMapAjax", "searchActivityTypeMapAjax", "setProject",
       ]);
-      await pick("resultModel.module", cfg.module, "Module", ["setModule"]);
-      await pick("resultModel.activityType", cfg.activityType, "Type of Activity", [
+      await pick("resultModel.module", row.profile.module, "Module", ["setModule"]);
+      await pick("resultModel.activityType", row.profile.activityType, "Type of Activity", [
         "setActivityType", "setCrList", "searchActivityDescMapAjax",
       ]);
-      await pick("resultModel.activity", cfg.activity, "Activity Code & Desc", ["setRequestDescription"]);
+      await pick("resultModel.activity", row.profile.activity, "Activity Code & Desc", ["setRequestDescription"]);
 
-      const radio = findStatusRadio();
+      const radio = findStatusRadio(row.profile.status === "complete" ? "complete" : "progress");
       if (radio) {
         radio.checked = true;
         trigger(radio);
@@ -709,7 +709,7 @@ async function runFillDts() {
   if (!credentials?.userId || !credentials?.password) return { ok: false, error: "missing_credentials" };
 
   const { dtsConfig } = await chrome.storage.local.get("dtsConfig");
-  const cfg = { ...DTS_DEFAULTS, ...(dtsConfig || {}) };
+  const cfg = dtsNormalizeConfig(dtsConfig);
   const problems = dtsValidate(cfg);
   if (problems.length) return { ok: false, error: "invalid_config", detail: problems.join(" ") };
   const effectiveRows = dtsEffectiveRows(cfg);
@@ -801,13 +801,8 @@ async function runFillDts() {
       func: fillDtsInPage,
       args: [
         {
-          project: cfg.project,
-          module: cfg.module,
-          activityType: cfg.activityType,
-          activity: cfg.activity,
-          status: cfg.status,
           submitAction: cfg.submitAction || "none",
-          rows: resolved.rows,
+          rows: resolved.rows.map((r, i) => ({ ...r, profile: dtsProfileFor(cfg, effectiveRows[i]) })),
         },
       ],
     });
