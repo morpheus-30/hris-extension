@@ -494,7 +494,8 @@ async function fillDtsInPage(cfg) {
     const sel = document.getElementById(id);
     sel.value = opt.value;
     trigger(sel);
-    hooks.forEach((name) => call(name, sel));
+    // A trailing ":" means "call with no arguments" (as the original script did)
+    hooks.forEach((name) => (name.endsWith(":") ? call(name.slice(0, -1)) : call(name, sel)));
     await sleep(1500); // let dependent dropdowns load via AJAX
   }
 
@@ -516,14 +517,22 @@ async function fillDtsInPage(cfg) {
     return document.getElementById("resultModel.status2");
   }
 
-  function setTimes(fromMin, toMin) {
+  function setTimes(fromMin, toMin, withDuration = true) {
     const f = document.getElementById("timepicker1");
     const t = document.getElementById("timepicker2");
     if (!f || !t) throw new Error("Time fields not found.");
+    if (!Number.isFinite(fromMin) || !Number.isFinite(toMin)) {
+      throw new Error(`Invalid row times (${fromMin} - ${toMin}).`);
+    }
     f.value = to12h(fromMin);
     t.value = to12h(toMin);
-    call("showduration");
+    if (withDuration) call("showduration");
   }
+  const timesIntact = (fromMin, toMin) => {
+    const f = document.getElementById("timepicker1").value;
+    const t = document.getElementById("timepicker2").value;
+    return f === to12h(fromMin) && t === to12h(toMin);
+  };
 
   try {
     // Date (also triggers the lookup of the system in-time / out-time)
@@ -557,8 +566,9 @@ async function fillDtsInPage(cfg) {
       const toMin = row.toMin + offset;
 
       setTimes(fromMin, toMin);
+      await sleep(1000); // same breathing room the original console script had
       await pick("resultModel.project", cfg.project, "Project", [
-        "setHiddentoBlank", "searchModuleMapAjax", "searchActivityTypeMapAjax", "setProject",
+        "setHiddentoBlank:", "searchModuleMapAjax", "searchActivityTypeMapAjax", "setProject",
       ]);
       await pick("resultModel.module", cfg.module, "Module", ["setModule"]);
       await pick("resultModel.activityType", cfg.activityType, "Type of Activity", [
@@ -575,8 +585,18 @@ async function fillDtsInPage(cfg) {
       const comments = document.getElementById("resultModel.comments");
       if (comments) comments.value = row.comment || "";
 
-      setTimes(fromMin, toMin); // re-assert in case the dropdown handlers reset them
+      // The dropdown handlers can overwrite the time fields (seen as "12:NaN AM").
+      // Re-assert them if so, without calling showduration() again, then verify.
+      if (!timesIntact(fromMin, toMin)) {
+        console.warn("[DTS fill] time fields were changed by the page, re-setting them");
+        setTimes(fromMin, toMin, false);
+      }
       await sleep(1000);
+      if (!timesIntact(fromMin, toMin)) {
+        const f = document.getElementById("timepicker1").value;
+        const t = document.getElementById("timepicker2").value;
+        throw new Error(`Row ${added + 1}: the page changed the time fields to "${f} - ${t}"; not adding the entry.`);
+      }
 
       const addBtn = document.getElementById("addEntry");
       if (!addBtn || addBtn.style.display === "none") {
