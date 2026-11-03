@@ -555,10 +555,11 @@ async function fillDtsInPage(cfg) {
     offset = 0;
     if (!cfg.wfh) {
       let startMin = cfg.customStartMin;
-      if (startMin === null) {
-        const inField = document.getElementById("resultModel.inTime");
-        startMin = from12h(inField && inField.value);
-        if (startMin === null) throw new Error("Office mode needs a system in-time, but none was found for this date.");
+      if (typeof startMin !== "number" || !Number.isFinite(startMin)) { // null/undefined = use system in-time
+        // Same as the original script: read the in-time the form loads for the date
+        await waitFor(() => from12h((document.getElementById("resultModel.inTime") || {}).value) !== null);
+        startMin = from12h((document.getElementById("resultModel.inTime") || {}).value);
+        if (startMin === null || !Number.isFinite(startMin)) throw new Error("Office mode needs a system in-time, but none was found for this date.");
       }
       offset = startMin - cfg.rows[0].fromMin;
     }
