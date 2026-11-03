@@ -13,6 +13,7 @@
 //  toType   "hours"  -> `hours` after this row's From
 
 const DTS_DEFAULTS = {
+  mode: "wfh", // "wfh": rows use plain custom times. "office": rows may use system in/out-time, gaps, durations.
   date: "", // "" = today, otherwise "YYYY-MM-DD" (from <input type="date">)
   maxHours: 4, // maximum duration of a single row, in hours
   project: "YME",
@@ -44,6 +45,12 @@ function dtsFromMin(mins) {
 function dtsDateLabel(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+// In WFH mode every row is a plain custom From/To time, whatever was picked in office mode.
+function dtsEffectiveRows(cfg) {
+  if (cfg.mode === "office") return cfg.rows;
+  return cfg.rows.map((r) => ({ ...r, fromType: "time", toType: "time" }));
 }
 
 function dtsNeedsSystemTimes(rows) {
@@ -120,6 +127,6 @@ function dtsValidate(cfg) {
   for (const key of ["project", "module", "activityType", "activity", "status"]) {
     if (!String(cfg[key] || "").trim()) errors.push(`"${key}" match text can't be empty.`);
   }
-  errors.push(...dtsResolveRows(cfg.rows, null, cfg.maxHours).errors);
+  errors.push(...dtsResolveRows(dtsEffectiveRows(cfg), null, cfg.maxHours).errors);
   return errors;
 }

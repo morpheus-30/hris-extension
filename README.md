@@ -25,8 +25,8 @@ The extension will log in and fetch your today's in-time and estimated out-time 
 
 Open the popup's **DTS filling** section:
 
-- **Default config**: date (blank = today), maximum hours per row (default 4), and the Project / Module / Activity / Status text used to pick the dropdown options. All of it is saved when you click Save config or Fill DTS.
-- **Time rows**: each row has its own **From** and **To** dropdowns:
+- **Default config**: mode (Work from home or Office), date (blank = today), maximum hours per row (default 4), and the Project / Module / Activity / Status text used to pick the dropdown options. All of it is saved when you click Save config or Fill DTS.
+- **Time rows**: in WFH mode each row is a plain From and To time. In Office mode each row also gets **From** and **To** dropdowns:
   - From: *Custom time*, *System in-time* (what the form shows for the date) or *After previous row* (+ a gap in minutes).
   - To: *Custom time*, *System out-time* or *Hours after From*.
   - Two rows are pre-filled; add or remove rows as needed. A row can't be longer than the maximum, From must be before To, and rows can't overlap.

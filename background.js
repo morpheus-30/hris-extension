@@ -651,7 +651,8 @@ async function runFillDts() {
   const cfg = { ...DTS_DEFAULTS, ...(dtsConfig || {}) };
   const problems = dtsValidate(cfg);
   if (problems.length) return { ok: false, error: "invalid_config", detail: problems.join(" ") };
-  const needs = dtsNeedsSystemTimes(cfg.rows);
+  const effectiveRows = dtsEffectiveRows(cfg);
+  const needs = dtsNeedsSystemTimes(effectiveRows);
 
   // A long-running injected script doesn't count as activity for the service
   // worker's idle timer, so ping an extension API while we work.
@@ -727,7 +728,7 @@ async function runFillDts() {
 
     // Now every row's From/To can be turned into concrete times
     const resolved = dtsResolveRows(
-      cfg.rows,
+      effectiveRows,
       { inMin: prepRun.result.inMin, outMin: prepRun.result.outMin },
       cfg.maxHours
     );

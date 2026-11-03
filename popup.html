@@ -301,7 +301,12 @@
         <summary>DTS filling</summary>
 
         <h2>Default config</h2>
-        <label for="dtsDate">Date (blank = today)</label>
+        <label for="dtsMode">Mode</label>
+        <select id="dtsMode">
+          <option value="wfh">Work from home — fixed custom times</option>
+          <option value="office">Office — in-time / out-time / durations</option>
+        </select>
+        <label for="dtsDate" style="margin-top:8px">Date (blank = today)</label>
         <input type="date" id="dtsDate" />
         <label for="dtsMaxHours" style="margin-top:8px">Maximum hours per row</label>
         <input type="number" id="dtsMaxHours" min="0.5" step="0.5" />

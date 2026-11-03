@@ -201,6 +201,7 @@ getDetailsBtn.addEventListener("click", () => {
 // ---------- DTS filling ----------
 
 const dtsEls = {
+  mode: document.getElementById("dtsMode"),
   date: document.getElementById("dtsDate"),
   maxHours: document.getElementById("dtsMaxHours"),
   project: document.getElementById("dtsProject"),
@@ -245,6 +246,7 @@ function dtsReadRow(el) {
 
 function readDtsConfig() {
   return {
+    mode: dtsEls.mode.value,
     date: dtsEls.date.value,
     maxHours: parseFloat(dtsEls.maxHours.value),
     project: dtsEls.project.value.trim(),
@@ -258,9 +260,13 @@ function readDtsConfig() {
 
 function refreshDtsValidation() {
   const cfg = readDtsConfig();
-  const resolved = dtsResolveRows(cfg.rows, null, cfg.maxHours).rows;
+  const office = cfg.mode === "office";
+  const resolved = dtsResolveRows(dtsEffectiveRows(cfg), null, cfg.maxHours).rows;
   dtsRowsEl.querySelectorAll(".dts-row").forEach((el, i) => {
-    const row = cfg.rows[i];
+    const row = office ? cfg.rows[i] : { ...cfg.rows[i], fromType: "time", toType: "time" };
+    // the source dropdowns only exist in office mode
+    el.querySelector(".fromType").style.display = office ? "" : "none";
+    el.querySelector(".toType").style.display = office ? "" : "none";
     // show only the input that matches each dropdown
     el.querySelector(".from").style.display = row.fromType === "time" ? "" : "none";
     el.querySelector(".gapWrap").style.display = row.fromType === "prev" ? "" : "none";
@@ -350,6 +356,7 @@ function addDtsRow(row) {
 }
 
 function renderDtsConfig(cfg) {
+  dtsEls.mode.value = cfg.mode || "wfh";
   dtsEls.date.value = cfg.date || "";
   dtsEls.maxHours.value = cfg.maxHours;
   for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
@@ -384,8 +391,17 @@ function showDtsRun(run) {
 
 document.getElementById("dtsAddRow").addEventListener("click", () => {
   const maxHours = parseFloat(dtsEls.maxHours.value) || 4;
-  const last = readDtsConfig().rows.at(-1);
-  // New rows default to "30 min after the previous row, for the maximum length"
+  const cfg = readDtsConfig();
+  const last = cfg.rows.at(-1);
+  const lastTo = last && last.toType === "time" ? dtsToMin(last.to) : null;
+  if (cfg.mode !== "office") {
+    // WFH: plain times, 30 min after the previous row, for the maximum length
+    const start = lastTo !== null ? lastTo + 30 : 9 * 60 + 30;
+    addDtsRow({ fromType: "time", from: dtsFromMin(start), toType: "time", to: dtsFromMin(start + Math.round(maxHours * 60)), comment: "" });
+    refreshDtsValidation();
+    return;
+  }
+  // Office: "30 min after the previous row, for the maximum length"
   addDtsRow(
     last
       ? { fromType: "prev", gap: 30, toType: "hours", hours: maxHours, comment: "" }
