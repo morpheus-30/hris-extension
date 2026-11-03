@@ -25,8 +25,8 @@ The extension will log in and fetch your today's in-time and estimated out-time 
 
 Open the popup's **DTS filling** section:
 
-- **Default config**: Work-from-home vs Office mode (office shifts all rows so the first starts at the system in-time), date (blank = today), minimum hours per row (default 4), and the Project / Module / Activity / Status text used to pick the dropdown options.
-- **Time rows**: From, To and Comment per row. Two rows are pre-filled; add or remove rows as needed. Each row must be at least the minimum length and rows can't overlap.
+- **Default config**: Work-from-home vs Office mode (office shifts all rows so the first starts at the system in-time), date (blank = today), maximum hours per row (default 4), and the Project / Module / Activity / Status text used to pick the dropdown options.
+- **Time rows**: From, To and Comment per row. Two rows are pre-filled; add or remove rows as needed. No row may be longer than the maximum and rows can't overlap.
 - **Fill DTS** logs in, opens IT Services -> DTS, adds every row and leaves the DTS tab open for you to review. It never presses Save/Submit.
 
 ## Notes

@@ -6,7 +6,7 @@ const DTS_DEFAULTS = {
   startSource: "intime", // office mode only: "intime" (system in-time) or "custom"
   customStart: "09:30", // used when startSource is "custom"
   date: "", // "" = today, otherwise "YYYY-MM-DD" (from <input type="date">)
-  minHours: 4, // minimum duration of a single row, in hours
+  maxHours: 4, // maximum duration of a single row, in hours
   project: "YME",
   module: "SAP",
   activityType: "Coding",
@@ -14,7 +14,7 @@ const DTS_DEFAULTS = {
   status: "progress", // matches the "Work In Progress" radio
   rows: [
     { from: "09:30", to: "13:30", comment: "Coursera" },
-    { from: "14:00", to: "18:00", comment: "Handover Call and EHC Dashboard changes" },
+    { from: "14:00", to: "17:00", comment: "Handover Call and EHC Dashboard changes" },
   ],
 };
 
@@ -41,7 +41,7 @@ function dtsDateLabel(iso) {
 // Returns a list of human-readable problems; empty list = valid.
 function dtsValidate(cfg) {
   const errors = [];
-  const minMinutes = Math.round((Number(cfg.minHours) || 0) * 60);
+  const maxMinutes = Math.round((Number(cfg.maxHours) || 0) * 60);
 
   if (!Array.isArray(cfg.rows) || cfg.rows.length === 0) {
     return ["Add at least one time row."];
@@ -64,8 +64,10 @@ function dtsValidate(cfg) {
       errors.push(`Row ${n}: enter both From and To times.`);
       return;
     }
-    if (to - from < minMinutes) {
-      errors.push(`Row ${n}: must be at least ${cfg.minHours} hour(s) long.`);
+    if (to <= from) {
+      errors.push(`Row ${n}: To must be after From.`);
+    } else if (to - from > maxMinutes) {
+      errors.push(`Row ${n}: can't be longer than ${cfg.maxHours} hour(s).`);
     }
     if (prevTo !== null && from < prevTo) {
       errors.push(`Row ${n}: starts before row ${n - 1} ends.`);

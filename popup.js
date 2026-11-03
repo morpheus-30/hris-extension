@@ -205,7 +205,7 @@ const dtsEls = {
   startSource: document.getElementById("dtsStartSource"),
   customStart: document.getElementById("dtsCustomStart"),
   date: document.getElementById("dtsDate"),
-  minHours: document.getElementById("dtsMinHours"),
+  maxHours: document.getElementById("dtsMaxHours"),
   project: document.getElementById("dtsProject"),
   module: document.getElementById("dtsModule"),
   activityType: document.getElementById("dtsActivityType"),
@@ -238,7 +238,7 @@ function readDtsConfig() {
     startSource: dtsEls.startSource.value,
     customStart: dtsEls.customStart.value,
     date: dtsEls.date.value,
-    minHours: parseFloat(dtsEls.minHours.value),
+    maxHours: parseFloat(dtsEls.maxHours.value),
     project: dtsEls.project.value.trim(),
     module: dtsEls.module.value.trim(),
     activityType: dtsEls.activityType.value.trim(),
@@ -256,14 +256,14 @@ function refreshDtsValidation() {
   const cfg = readDtsConfig();
   document.getElementById("dtsStartWrap").style.display = cfg.wfh ? "none" : "block";
   dtsEls.customStart.style.display = cfg.startSource === "custom" ? "block" : "none";
-  const minMinutes = Math.round((cfg.minHours || 0) * 60);
+  const maxMinutes = Math.round((cfg.maxHours || 0) * 60);
   dtsRowsEl.querySelectorAll(".dts-row").forEach((el, i) => {
     const row = cfg.rows[i];
     const dur = el.querySelector(".dur");
     dur.textContent = dtsDurationLabel(row.from, row.to);
     const f = dtsToMin(row.from);
     const t = dtsToMin(row.to);
-    dur.classList.toggle("bad", f !== null && t !== null && t - f < minMinutes);
+    dur.classList.toggle("bad", f !== null && t !== null && t - f > maxMinutes);
   });
   const errors = dtsValidate(cfg);
   dtsErrorsEl.textContent = errors.join(" ");
@@ -312,7 +312,7 @@ function renderDtsConfig(cfg) {
   dtsEls.startSource.value = cfg.startSource;
   dtsEls.customStart.value = cfg.customStart || "";
   dtsEls.date.value = cfg.date || "";
-  dtsEls.minHours.value = cfg.minHours;
+  dtsEls.maxHours.value = cfg.maxHours;
   for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];
   dtsRowsEl.textContent = "";
   cfg.rows.forEach(addDtsRow);
@@ -348,12 +348,12 @@ document.getElementById("dtsAddRow").addEventListener("click", () => {
   const rows = readDtsConfig().rows;
   const last = rows[rows.length - 1];
   const lastTo = last ? dtsToMin(last.to) : null;
-  const minMinutes = Math.round((parseFloat(dtsEls.minHours.value) || 4) * 60);
+  const maxMinutes = Math.round((parseFloat(dtsEls.maxHours.value) || 4) * 60);
   if (lastTo !== null) {
     const start = lastTo + 30;
-    addDtsRow({ from: dtsFromMin(start), to: dtsFromMin(start + minMinutes), comment: "" });
+    addDtsRow({ from: dtsFromMin(start), to: dtsFromMin(start + maxMinutes), comment: "" });
   } else {
-    addDtsRow({ from: "09:30", to: dtsFromMin(9 * 60 + 30 + minMinutes), comment: "" });
+    addDtsRow({ from: "09:30", to: dtsFromMin(9 * 60 + 30 + maxMinutes), comment: "" });
   }
   refreshDtsValidation();
 });
