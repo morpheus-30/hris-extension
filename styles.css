@@ -1,0 +1,22 @@
+.est-out-badge {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px dotted rgba(0, 0, 100, 0.4);
+  font-family: "Times New Roman", serif;
+  font-size: 9px;
+  font-weight: bold;
+  color: #b35c00;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.est-out-fallback-badge {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px dotted #4da6ff;
+  font-family: "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: #b35c00;
+  text-align: center;
+}
