@@ -400,7 +400,7 @@ async function runGetDetails() {
 //   3. Fill the form in the page's MAIN world (the form's own JS helpers
 //      such as showduration() are only reachable from there) and leave the
 //      tab open and focused so the result can be reviewed and saved.
-// The final Save/Submit is intentionally NOT clicked.
+// Submit is only clicked if chosen in the popup (default: review only).
 // =====================================================================
 
 const DTS_LINK_SELECTOR = "a[href*='changeModule?moduleCd=901']";
@@ -616,7 +616,7 @@ async function fillDtsInPage(cfg) {
       await sleep(3000); // let the entry be added and the form reset
     }
 
-    // Optional: press Save / Submit on the form (off unless chosen in the popup)
+    // Optional: press the form's Submit button (off unless chosen in the popup)
     if (cfg.submitAction === "submit") {
       await sleep(1000);
       const wanted = /^\s*submit/i;
