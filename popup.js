@@ -34,13 +34,13 @@ const saveStatus = document.getElementById("saveStatus");
 document.getElementById("saveHours").addEventListener("click", () => {
   const minutes = hhmmToMinutes(hoursInput.value);
   if (minutes === null) {
-    saveStatus.style.color = "#cc0000";
+    saveStatus.style.color = "var(--bad)";
     saveStatus.textContent = "Enter time as HH:MM, e.g. 09:00";
     return;
   }
   currentRequiredMinutes = minutes;
   chrome.storage.sync.set({ requiredMinutes: minutes }, () => {
-    saveStatus.style.color = "#007700";
+    saveStatus.style.color = "var(--good)";
     saveStatus.textContent = "Saved.";
     setTimeout(() => (saveStatus.textContent = ""), 1500);
     updateDisplay();
@@ -62,12 +62,12 @@ document.getElementById("saveCreds").addEventListener("click", () => {
   const userId = userIdInput.value.trim();
   const password = passwordInput.value;
   if (!userId || !password) {
-    credStatus.style.color = "#cc0000";
+    credStatus.style.color = "var(--bad)";
     credStatus.textContent = "Enter both User Id and Password.";
     return;
   }
   chrome.storage.local.set({ credentials: { userId, password } }, () => {
-    credStatus.style.color = "#007700";
+    credStatus.style.color = "var(--good)";
     credStatus.textContent = "Saved.";
     setTimeout(() => (credStatus.textContent = ""), 1500);
   });
@@ -77,7 +77,7 @@ document.getElementById("clearCreds").addEventListener("click", () => {
   chrome.storage.local.remove("credentials", () => {
     userIdInput.value = "";
     passwordInput.value = "";
-    credStatus.style.color = "#007700";
+    credStatus.style.color = "var(--good)";
     credStatus.textContent = "Cleared.";
     setTimeout(() => (credStatus.textContent = ""), 1500);
   });
@@ -94,13 +94,13 @@ const increaseBtn = document.getElementById("increaseShortLeave");
 document.getElementById("saveShortLeaveMinutes").addEventListener("click", () => {
   const minutes = parseInt(shortLeaveMinutesInput.value.trim(), 10);
   if (!Number.isFinite(minutes) || minutes <= 0) {
-    shortLeaveStatus.style.color = "#cc0000";
+    shortLeaveStatus.style.color = "var(--bad)";
     shortLeaveStatus.textContent = "Enter a positive number of minutes.";
     return;
   }
   currentShortLeaveMinutes = minutes;
   chrome.storage.sync.set({ shortLeaveMinutes: minutes }, () => {
-    shortLeaveStatus.style.color = "#007700";
+    shortLeaveStatus.style.color = "var(--good)";
     shortLeaveStatus.textContent = "Saved.";
     setTimeout(() => (shortLeaveStatus.textContent = ""), 1500);
     updateDisplay();
@@ -137,7 +137,7 @@ function updateDisplay() {
   const time = formatFetchedAt(currentRecord.fetchedAt);
 
   if (currentRecord.alreadyOut) {
-    resultDiv.innerHTML = `Checked at ${time} — already clocked out at <span class="estimate">${currentRecord.outTimeText}</span>.`;
+    resultDiv.innerHTML = `Checked at ${time}: already clocked out at <span class="estimate">${currentRecord.outTimeText}</span>.`;
     return;
   }
 
@@ -150,7 +150,7 @@ function updateDisplay() {
     ? ` (${currentShortLeaveCount} short leave${currentShortLeaveCount > 1 ? "s" : ""} applied)`
     : "";
 
-  resultDiv.innerHTML = `Checked at ${time} — <span class="estimate">Est. Out: ${minutesToHHMM(adjustedMinutes)}</span>${suffix}`;
+  resultDiv.innerHTML = `Checked at ${time} <span class="estimate">Est. Out: ${minutesToHHMM(adjustedMinutes)}</span>${suffix}`;
 }
 
 // ---------- Load everything, then render once ----------
@@ -224,12 +224,12 @@ const DTS_ERROR_MESSAGES = {
 const DTS_FROM_OPTIONS = [
   ["time", "Custom time"],
   ["intime", "System in-time"],
-  ["prev", "After previous row"],
+  ["prev", "After previous"],
 ];
 const DTS_TO_OPTIONS = [
   ["time", "Custom time"],
   ["outtime", "System out-time"],
-  ["hours", "Hours after From"],
+  ["hours", "Length (hours)"],
 ];
 
 function dtsReadRow(el) {
@@ -331,7 +331,7 @@ function addDtsRow(row) {
   toCell.append(
     dtsSelect("toType", DTS_TO_OPTIONS, row.toType || "time"),
     dtsInput("time", "to", row.to),
-    dtsLabeled("hoursWrap", "hours after From", dtsInput("number", "hours", row.hours ?? 4, { min: 0.5, step: 0.5 }))
+    dtsLabeled("hoursWrap", "hours long", dtsInput("number", "hours", row.hours ?? 4, { min: 0.5, step: 0.5 }))
   );
 
   const comment = dtsInput("text", "comment", row.comment, { placeholder: "Comment" });
@@ -380,10 +380,10 @@ function showDtsRun(run) {
   }
   const time = formatFetchedAt(run.at || new Date().toISOString());
   if (run.ok) {
-    dtsResultEl.style.color = "#007700";
+    dtsResultEl.style.color = "var(--good)";
     dtsResultEl.textContent = `${time} — added ${run.added} entr${run.added === 1 ? "y" : "ies"}. Review and save in the DTS tab.`;
   } else {
-    dtsResultEl.style.color = "#cc0000";
+    dtsResultEl.style.color = "var(--bad)";
     const msg = DTS_ERROR_MESSAGES[run.error] || run.detail || run.error || "Something went wrong.";
     dtsResultEl.textContent = `${time} — ${msg}`;
   }
@@ -412,7 +412,7 @@ document.getElementById("dtsAddRow").addEventListener("click", () => {
 
 document.getElementById("dtsSave").addEventListener("click", async () => {
   const ok = await saveDtsConfig();
-  dtsResultEl.style.color = ok ? "#007700" : "#cc0000";
+  dtsResultEl.style.color = ok ? "var(--good)" : "var(--bad)";
   dtsResultEl.textContent = ok ? "Config saved." : "Fix the errors above first.";
   if (ok) setTimeout(() => (dtsResultEl.textContent = ""), 1500);
 });
@@ -426,7 +426,7 @@ Object.values(dtsEls).forEach((el) => el.addEventListener("input", refreshDtsVal
 
 fillDtsBtn.addEventListener("click", async () => {
   if (!(await saveDtsConfig())) {
-    dtsResultEl.style.color = "#cc0000";
+    dtsResultEl.style.color = "var(--bad)";
     dtsResultEl.textContent = "Fix the errors above first.";
     return;
   }
@@ -439,7 +439,7 @@ fillDtsBtn.addEventListener("click", async () => {
     fillDtsBtn.disabled = false;
     fillDtsBtn.textContent = "Fill DTS";
     if (chrome.runtime.lastError) {
-      dtsResultEl.style.color = "#cc0000";
+      dtsResultEl.style.color = "var(--bad)";
       dtsResultEl.textContent = chrome.runtime.lastError.message;
       return;
     }
@@ -453,3 +453,19 @@ chrome.storage.local.get({ dtsConfig: null, dtsLastRun: null }, ({ dtsConfig, dt
   renderDtsConfig({ ...DTS_DEFAULTS, ...saved });
   showDtsRun(dtsLastRun);
 });
+
+// ---------- Tabs ----------
+
+(function setupTabs() {
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  function show(panelId) {
+    tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.panel === panelId)));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === panelId));
+    try { localStorage.setItem("lastTab", panelId); } catch (e) { /* storage unavailable */ }
+  }
+  tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.panel)));
+  try {
+    const last = localStorage.getItem("lastTab");
+    if (last && document.getElementById(last)) show(last);
+  } catch (e) { /* storage unavailable */ }
+})();
