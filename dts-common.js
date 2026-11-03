@@ -3,6 +3,8 @@
 
 const DTS_DEFAULTS = {
   wfh: true, // true: use the row times as-is. false: shift rows so row 1 starts at the system in-time.
+  startSource: "intime", // office mode only: "intime" (system in-time) or "custom"
+  customStart: "09:30", // used when startSource is "custom"
   date: "", // "" = today, otherwise "YYYY-MM-DD" (from <input type="date">)
   minHours: 4, // minimum duration of a single row, in hours
   project: "YME",
@@ -47,6 +49,10 @@ function dtsValidate(cfg) {
   if (cfg.date && !dtsDateLabel(cfg.date)) errors.push("Date is invalid.");
   for (const key of ["project", "module", "activityType", "activity", "status"]) {
     if (!String(cfg[key] || "").trim()) errors.push(`"${key}" match text can't be empty.`);
+  }
+
+  if (!cfg.wfh && cfg.startSource === "custom" && dtsToMin(cfg.customStart) === null) {
+    errors.push("Enter a valid custom start time.");
   }
 
   let prevTo = null;

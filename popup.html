@@ -287,8 +287,16 @@
         <label for="dtsMode">Mode</label>
         <select id="dtsMode">
           <option value="wfh">Work from home — use the times below as-is</option>
-          <option value="office">Office — first row starts at system in-time</option>
+          <option value="office">Office — shift rows to start at in-time / custom time</option>
         </select>
+        <div id="dtsStartWrap" style="margin-top:8px">
+          <label for="dtsStartSource">Office start time</label>
+          <select id="dtsStartSource">
+            <option value="intime">Use system in-time</option>
+            <option value="custom">Custom time</option>
+          </select>
+          <input type="time" id="dtsCustomStart" style="margin-top:4px" />
+        </div>
         <label for="dtsDate" style="margin-top:8px">Date (blank = today)</label>
         <input type="date" id="dtsDate" />
         <label for="dtsMinHours" style="margin-top:8px">Minimum hours per row</label>

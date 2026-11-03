@@ -202,6 +202,8 @@ getDetailsBtn.addEventListener("click", () => {
 
 const dtsEls = {
   mode: document.getElementById("dtsMode"),
+  startSource: document.getElementById("dtsStartSource"),
+  customStart: document.getElementById("dtsCustomStart"),
   date: document.getElementById("dtsDate"),
   minHours: document.getElementById("dtsMinHours"),
   project: document.getElementById("dtsProject"),
@@ -233,6 +235,8 @@ function dtsDurationLabel(from, to) {
 function readDtsConfig() {
   return {
     wfh: dtsEls.mode.value === "wfh",
+    startSource: dtsEls.startSource.value,
+    customStart: dtsEls.customStart.value,
     date: dtsEls.date.value,
     minHours: parseFloat(dtsEls.minHours.value),
     project: dtsEls.project.value.trim(),
@@ -250,6 +254,8 @@ function readDtsConfig() {
 
 function refreshDtsValidation() {
   const cfg = readDtsConfig();
+  document.getElementById("dtsStartWrap").style.display = cfg.wfh ? "none" : "block";
+  dtsEls.customStart.style.display = cfg.startSource === "custom" ? "block" : "none";
   const minMinutes = Math.round((cfg.minHours || 0) * 60);
   dtsRowsEl.querySelectorAll(".dts-row").forEach((el, i) => {
     const row = cfg.rows[i];
@@ -303,6 +309,8 @@ function addDtsRow(row) {
 
 function renderDtsConfig(cfg) {
   dtsEls.mode.value = cfg.wfh ? "wfh" : "office";
+  dtsEls.startSource.value = cfg.startSource;
+  dtsEls.customStart.value = cfg.customStart || "";
   dtsEls.date.value = cfg.date || "";
   dtsEls.minHours.value = cfg.minHours;
   for (const k of ["project", "module", "activityType", "activity", "status"]) dtsEls[k].value = cfg[k];

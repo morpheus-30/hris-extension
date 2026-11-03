@@ -539,12 +539,16 @@ async function fillDtsInPage(cfg) {
     await sleep(2500);
 
     // Office mode: shift every row so the first one starts at the system in-time
+    // (or at the user-defined start time)
     let offset = 0;
     if (!cfg.wfh) {
-      const inField = document.getElementById("resultModel.inTime");
-      const inMin = from12h(inField && inField.value);
-      if (inMin === null) throw new Error("Office mode needs a system in-time, but none was found for this date.");
-      offset = inMin - cfg.rows[0].fromMin;
+      let startMin = cfg.customStartMin;
+      if (startMin === null) {
+        const inField = document.getElementById("resultModel.inTime");
+        startMin = from12h(inField && inField.value);
+        if (startMin === null) throw new Error("Office mode needs a system in-time, but none was found for this date.");
+      }
+      offset = startMin - cfg.rows[0].fromMin;
     }
 
     let added = 0;
@@ -688,6 +692,7 @@ async function runFillDts() {
       args: [
         {
           wfh: cfg.wfh,
+          customStartMin: cfg.startSource === "custom" ? dtsToMin(cfg.customStart) : null,
           date: dtsDateLabel(cfg.date),
           project: cfg.project,
           module: cfg.module,
